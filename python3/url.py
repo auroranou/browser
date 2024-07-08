@@ -2,7 +2,7 @@ import socket
 import ssl
 
 class CustomURL:
-    def __init__(self, url):
+    def __init__(self, url: str):
         self.scheme, url = url.split("://", 1)
         assert self.scheme in ["http", "https"]
 
@@ -13,13 +13,20 @@ class CustomURL:
         # Ensure path is prepended with `/`
         self.path = f'/{url}'
 
-        if ":" in self.host:
-             self.host, port = self.host.split(":", 1)
-             self.port = int(port)
-        elif self.scheme == "http":
+        if self.scheme == "http":
              self.port = 80
         elif self.scheme == "https":
              self.port = 443
+
+        if ":" in self.host:
+             self.host, port = self.host.split(":", 1)
+             self.port = int(port)
+
+    def make_headers(self, headers: dict[str, str]):
+        headers_str = "" 
+        for key, value in headers.items():
+             headers_str += f'{key}: {value}\r\n'
+        return headers_str
     
     def request(self):
         s = socket.socket(
@@ -30,18 +37,15 @@ class CustomURL:
             # Stream type = each computer can send arbitrary amounts of data
             type=socket.SOCK_STREAM,
         )
+        s.connect((self.host, self.port))
 
         if self.scheme == "https":
             ctx = ssl.create_default_context()
+            # Only send requests over secure context 
             s = ctx.wrap_socket(s, server_hostname=self.host)
 
-        s.connect((self.host, self.port))
-
-        request = (
-            f'GET {self.path} HTTP/1.0\r\n'
-            f'HOST: {self.host}\r\n'
-            f'\r\n'
-        )
+        headers = self.make_headers({'Host': self.host, "Connection": "close"})
+        request = (f'GET {self.path} HTTP/1.1\r\n{headers}\r\n')
 
         s.send(request.encode("utf8"))
 
