@@ -11,24 +11,27 @@ def make_headers(headers: dict[str, str]):
 
 class CustomURL:
     def __init__(self, url: str):
-        self.scheme, url = url.split("://", 1)
-        assert self.scheme in ["file", "http", "https"]
+        if url.startswith("data:"):
+            self.scheme, self.data = url.split(",", 1)
+        else:
+            self.scheme, url = url.split("://", 1)
+            assert self.scheme in ["file", "http", "https"]
 
-        if "/" not in url:
-            url = f"{url}/"
-        self.host, url = url.split("/", 1)
+            if "/" not in url:
+                url = f"{url}/"
+            self.host, url = url.split("/", 1)
 
-        # Ensure path is prepended with `/`
-        self.path = f"/{url}"
+            # Ensure path is prepended with `/`
+            self.path = f"/{url}"
 
-        if self.scheme == "http":
-            self.port = 80
-        elif self.scheme == "https":
-            self.port = 443
+            if self.scheme == "http":
+                self.port = 80
+            elif self.scheme == "https":
+                self.port = 443
 
-        if ":" in self.host:
-            self.host, port = self.host.split(":", 1)
-            self.port = int(port)
+            if ":" in self.host:
+                self.host, port = self.host.split(":", 1)
+                self.port = int(port)
 
     def _request_http(self):
         s = socket.socket(
@@ -83,7 +86,13 @@ class CustomURL:
             contents = file.read()
             return contents
 
+    def _request_data(self):
+        assert self.data is not None
+        return self.data
+
     def request(self):
+        if self.scheme.startswith("data:"):
+            return self._request_data()
         if self.scheme == "file":
             return self._request_file()
 
