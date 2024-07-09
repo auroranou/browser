@@ -1,5 +1,6 @@
 import socket
 import ssl
+from urllib.parse import urlparse
 
 
 def make_headers(headers: dict[str, str]):
@@ -9,31 +10,34 @@ def make_headers(headers: dict[str, str]):
     return headers_str
 
 
-class CustomURL:
+class URL:
     def __init__(self, url: str):
+        self.should_view_source = False
+
+        if url.startswith("view-source"):
+            self.should_view_source = True
+            _, url = url.split("view-source:", 1)
         if url.startswith("data:"):
-            self.scheme, self.data = url.split(",", 1)
+            self.scheme, self.path = url.split(",", 1)
         else:
-            self.scheme, url = url.split("://", 1)
+            result = urlparse(url)
+
+            self.scheme = result.scheme
             assert self.scheme in ["file", "http", "https"]
 
-            if "/" not in url:
-                url = f"{url}/"
-            self.host, url = url.split("/", 1)
+            self.host = result.hostname
+            self.path = result.path
 
-            # Ensure path is prepended with `/`
-            self.path = f"/{url}"
-
-            if self.scheme == "http":
+            if result.port:
+                self.port = result.port
+            elif self.scheme == "http":
                 self.port = 80
             elif self.scheme == "https":
                 self.port = 443
 
-            if ":" in self.host:
-                self.host, port = self.host.split(":", 1)
-                self.port = int(port)
-
     def _request_http(self):
+        assert self.host is not None and self.port is not None
+
         s = socket.socket(
             # Address family (how to find remote computer)
             family=socket.AF_INET,
@@ -46,7 +50,6 @@ class CustomURL:
 
         if self.scheme == "https":
             ctx = ssl.create_default_context()
-            # Only send requests over secure context
             s = ctx.wrap_socket(s, server_hostname=self.host)
 
         headers = make_headers({"Host": self.host, "Connection": "close"})
@@ -84,16 +87,18 @@ class CustomURL:
     def _request_file(self):
         with open(self.path, "rb") as file:
             contents = file.read()
-            return contents
+            return contents, False
 
     def _request_data(self):
-        assert self.data is not None
-        return self.data
+        return self.path
 
     def request(self):
         if self.scheme.startswith("data:"):
-            return self._request_data()
-        if self.scheme == "file":
-            return self._request_file()
-
-        return self._request_http()
+            result = self._request_data()
+        elif self.scheme == "file":
+            result = self._request_file()
+        elif self.scheme in ["http", "https"]:
+            result = self._request_http()
+        else:
+            raise
+        return result, self.should_view_source
