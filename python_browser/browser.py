@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
-from html_lexer import lex
+from html_lexer import lex, transform
 from layout import layout
 import tkinter
 from url import URL
@@ -27,7 +27,10 @@ class Browser:
     def load(self, url: URL):
         body, should_view_source = url.request()
 
-        self.text = lex(body)
+        if should_view_source:
+            self.text = lex(transform(body))
+        else:
+            self.text = lex(body)
         self.display_list, self.doc_height = layout(self.text)
         self.draw()
 
