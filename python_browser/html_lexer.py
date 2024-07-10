@@ -4,6 +4,8 @@ ENTITIES = {"&gt;": ">", "&lt;": "<"}
 def lex(body):
     text = ""
     in_tag = False
+
+    # Ex. 1-4
     in_entity = False
     maybe_entity_str = ""
 
@@ -17,6 +19,7 @@ def lex(body):
             maybe_entity_str += c
         elif in_entity:
             maybe_entity_str += c
+
             if len(maybe_entity_str) == 4:
                 entity = ENTITIES.get(maybe_entity_str)
 
@@ -33,6 +36,7 @@ def lex(body):
     return text
 
 
+# Ex. 1-5
 def transform(body):
     text = ""
 
@@ -44,5 +48,4 @@ def transform(body):
         else:
             text += c
 
-    print(text)
     return text

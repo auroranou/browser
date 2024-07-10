@@ -4,7 +4,7 @@ from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
 from html_lexer import lex, transform
 from layout import layout
 import tkinter
-from url import URL
+from url import URL, AbstractURL
 
 
 class Browser:
@@ -24,13 +24,14 @@ class Browser:
         self.window.bind("<MouseWheel>", self.mousewheel)
         self.window.bind("<Configure>", self.resize)
 
-    def load(self, url: URL):
+    def load(self, url: AbstractURL):
         body, should_view_source = url.request()
-
+        # Ex. 1-5
         if should_view_source:
             self.text = lex(transform(body))
         else:
             self.text = lex(body)
+
         self.display_list, self.doc_height = layout(self.text)
         self.draw()
 
@@ -49,6 +50,7 @@ class Browser:
 
         self.draw_scrollbar()
 
+    # Ex. 2-4
     def draw_scrollbar(self):
         scrollbar_height = (self.screen_height / self.doc_height) * self.screen_height
         scrollbar_width = 12
@@ -61,7 +63,6 @@ class Browser:
         self.canvas.create_rectangle(x0, y0, x1, y1, fill="blue")
 
     def scrolldown(self, e):
-        print(self.scroll, self.doc_height)
         if self.scroll < self.doc_height - SCROLL_STEP:
             self.scroll += SCROLL_STEP
             self.draw()
@@ -71,13 +72,15 @@ class Browser:
             self.scroll -= SCROLL_STEP
             self.draw()
 
+    # Ex. 2-2
     def mousewheel(self, e):
-        # Subtract delta to account for preferred scrolling direction
+        # Subtract delta instead of adding to account for preferred scrolling direction
         new_scroll_pos = self.scroll - e.delta
         if (new_scroll_pos >= 0) and (new_scroll_pos < self.doc_height):
             self.scroll = new_scroll_pos
             self.draw()
 
+    # Ex. 2-3
     def resize(self, e):
         self.screen_height = e.height
         self.screen_width = e.width
@@ -88,6 +91,6 @@ class Browser:
 if __name__ == "__main__":
     import sys
 
-    url = URL(sys.argv[1])
+    url = URL.create(sys.argv[1])
     Browser().load(url)
     tkinter.mainloop()
