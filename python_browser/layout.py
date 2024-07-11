@@ -16,6 +16,7 @@ def layout(text: str, width: int = WIDTH) -> tuple[list[DisplayListItem], int]:
             cursor_y += VSTEP
             cursor_x = HSTEP
 
+        # Ex. 2-1
         if c == "\n":
             cursor_y += VSTEP * 2
             cursor_x = HSTEP

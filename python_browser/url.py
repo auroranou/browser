@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+import gzip
+from io import BufferedReader
 import socket
 import ssl
 from urllib.parse import urlparse
@@ -57,7 +59,7 @@ class HttpURL(AbstractURL):
     def __init__(self, url: str):
         self._parse_url(url)
 
-    def _parse_url(self, url):
+    def _parse_url(self, url: str):
         self.url = url
         self.should_view_source = False
 
@@ -81,28 +83,7 @@ class HttpURL(AbstractURL):
         elif self.scheme == "https":
             self.port = 443
 
-    # Ex. 1-7
-    def _handle_redirect(self, location: str | None):
-        if location is not None:
-            if location.startswith("/"):
-                self.path = location
-            else:
-                self._parse_url(location)
-            self.request()
-
-    # Ex. 1-8
-    def _handle_cache(self, cache_control: str | None, content: str):
-        cache_control_directives = parse_cache_control_header(cache_control)
-        should_cache = cache_control_directives.get("no_store") is not None
-        max_age = cache_control_directives.get("max_age", 0)
-        if should_cache:
-            browser_cache.add(self.url, content, int(max_age))
-
-    def request(self):
-        # Check cache for this URL first and return content immediately if found
-        if browser_cache.has(self.url):
-            return browser_cache.get(self.url)
-
+    def _connect(self) -> ssl.SSLSocket | socket.socket:
         s = socket.socket(
             # Address family (how to find remote computer)
             family=socket.AF_INET,
@@ -117,46 +98,101 @@ class HttpURL(AbstractURL):
             ctx = ssl.create_default_context()
             s = ctx.wrap_socket(s, server_hostname=self.host)
 
+        return s
+
+    def _build_request(self) -> str:
         headers = make_headers(
-            {"Host": self.host, "Connection": "close", "User-Agent": "python-browser"}
+            {
+                "Accept-Encoding": "gzip",
+                "Connection": "close",
+                "Host": self.host,
+                "User-Agent": "python-browser",
+            }
         )
         request = f"GET {self.path} HTTP/1.1\r\n{headers}\r\n"
+        return request
 
-        s.send(request.encode("utf8"))
-
-        # Write response bytes to a file-like object, handling HTTP line endings
-        response = s.makefile("r", encoding="utf8", newline="\r\n")
-
-        # Read out response parts; status line is first line
-        statusline = response.readline()
-        version, status, explanation = statusline.split(" ", 2)
-
-        # Don't bother checking server HTTP version against own version
-        # Parse response headers
+    def _parse_response_headers(self, response: BufferedReader):
         response_headers = {}
         while True:
-            line = response.readline()
+            line = response.readline().decode("utf-8")
             if line == "\r\n":
                 break
             header, value = line.split(":", 1)
             # Headers are case-insensitive, whitespace doesn't matter
             response_headers[header.lower()] = value.strip()
+        return response_headers
 
-        # Don't handle compression and chunking for now
-        assert "transfer-encoding" not in response_headers
-        assert "content-encoding" not in response_headers
+    # Ex. 1-7
+    def _handle_redirect(self, location: str | None):
+        if location is not None:
+            if location.startswith("/"):
+                self.path = location
+            else:
+                self._parse_url(location)
+            self.request()
+
+    # Ex. 1-9
+    def _read_chunks(self, response: BufferedReader):
+        content = b""
+        while True:
+            line = response.readline()
+            chunk_size = int(line, 16)  # Size is first line, represented in hex
+
+            # Final chunk always has length of 0
+            if chunk_size == 0:
+                break
+            content += response.read(chunk_size)
+            # Each chunk ends in `/r/n`, which needs to be read
+            response.read(2)
+
+        return content
+
+    # Ex. 1-8
+    def _cache_response(self, cache_control: str | None, content: str):
+        cache_control_directives = parse_cache_control_header(cache_control)
+        should_cache = "no_store" in cache_control_directives
+        max_age = cache_control_directives.get("max_age", 0)
+        if should_cache:
+            browser_cache.add(self.url, content, int(max_age))
+
+    def request(self):
+        # Check cache for this URL first and return content immediately if found
+        if browser_cache.has(self.url):
+            return browser_cache.get(self.url)
+
+        s = self._connect()
+        request = self._build_request()
+        s.send(request.encode("utf8"))
+
+        # Write response bytes to a file-like object, handling HTTP line endings
+        response = s.makefile("rb", newline="\r\n")
+
+        # Read out response parts; status line is first line
+        statusline = response.readline().decode("utf-8")
+        version, status, explanation = statusline.split(" ", 2)
+
+        # Parse response headers
+        response_headers = self._parse_response_headers(response)
 
         # Handle 3xx redirects
-        if status.startswith("3"):
-            location = response_headers.get("location")
-            self._handle_redirect(location)
+        if status.startswith("3") and "location" in response_headers:
+            self._handle_redirect(response_headers.get("location"))
 
-        content = response.read()
+        # Handle decompression and chunking
+        if response_headers.get("content-encoding") == "gzip":
+            if response_headers.get("transfer-encoding") == "chunked":
+                content_bytes = self._read_chunks(response)
+                content = gzip.decompress(content_bytes).decode("utf-8")
+            else:
+                content = gzip.decompress(response.read()).decode("utf-8")
+        else:
+            content = response.read().decode("utf-8")
 
-        # Handle caching GET 200 request results
+        # Handle caching results for GET 200 requests
         if status == "200":
             cache_control = response_headers.get("cache-control")
-            self._handle_cache(cache_control, content)
+            self._cache_response(cache_control, content)
 
         s.close()
 
