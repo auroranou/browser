@@ -4,7 +4,7 @@ from constants import HSTEP, VSTEP, WIDTH
 DisplayListItem = tuple[int, int, str]
 
 
-def layout(text: str, width: int = WIDTH) -> tuple[list[DisplayListItem], int]:
+def layout(text: str, width: int = WIDTH) -> tuple[list[DisplayListItem], float]:
     display_list = []
     cursor_x, cursor_y = HSTEP, VSTEP
 
@@ -18,7 +18,7 @@ def layout(text: str, width: int = WIDTH) -> tuple[list[DisplayListItem], int]:
 
         # Ex. 2-1
         if c == "\n":
-            cursor_y += VSTEP * 2
+            cursor_y += VSTEP * 1.5
             cursor_x = HSTEP
 
     return display_list, cursor_y

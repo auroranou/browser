@@ -48,22 +48,22 @@ class Browser:
 
             self.canvas.create_text(x, y - self.scroll, text=c)
 
-        self.draw_scrollbar()
+        if self.doc_height > self.screen_height:
+            self.draw_scrollbar()
 
     # Ex. 2-4
     def draw_scrollbar(self):
-        scrollbar_height = (self.screen_height / self.doc_height) * self.screen_height
         scrollbar_width = 12
 
         x0 = self.screen_width - scrollbar_width
-        y0 = (self.scroll / self.doc_height) * self.screen_height
+        y0 = self.scroll / self.doc_height * self.screen_height
         x1 = self.screen_width
-        y1 = y0 + scrollbar_height
+        y1 = (self.scroll + self.screen_height) / self.doc_height * self.screen_height
 
         self.canvas.create_rectangle(x0, y0, x1, y1, fill="blue")
 
     def scrolldown(self, e):
-        if self.scroll < self.doc_height - SCROLL_STEP:
+        if self.scroll < self.doc_height - self.screen_height:
             self.scroll += SCROLL_STEP
             self.draw()
 
