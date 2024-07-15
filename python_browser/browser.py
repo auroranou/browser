@@ -3,8 +3,7 @@ import tkinter
 
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
 from html_lexer import lex, transform
-from layout import layout
-from url import DataURL, FileURL, HttpURL
+from layout import Layout
 from url import URL, AbstractURL
 
 
@@ -34,13 +33,17 @@ class Browser:
         else:
             self.text = lex(body)
 
-        self.display_list, self.doc_height = layout(self.text, rtl=self.rtl)
         self.draw()
+
+    def layout(self):
+        layout = Layout(self.text, self.screen_width)
+        self.display_list = layout.display_list
+        self.doc_height = layout.height
 
     def draw(self):
         self.canvas.delete("all")
 
-        for x, y, c in self.display_list:
+        for x, y, c, f in self.display_list:
             # Don't draw characters below viewing window
             if y > self.scroll + self.screen_height:
                 continue
@@ -48,7 +51,7 @@ class Browser:
             if y + VSTEP < self.scroll:
                 continue
 
-            self.canvas.create_text(x, y - self.scroll, text=c)
+            self.canvas.create_text(x, y - self.scroll, text=c, font=f, anchor="nw")
 
         if self.doc_height > self.screen_height:
             self.draw_scrollbar()
@@ -78,7 +81,9 @@ class Browser:
     def mousewheel(self, e):
         # Subtract delta instead of adding to account for preferred scrolling direction
         new_scroll_pos = self.scroll - e.delta
-        if (new_scroll_pos >= 0) and (new_scroll_pos < self.doc_height):
+        if (new_scroll_pos >= 0) and (
+            new_scroll_pos < self.doc_height - self.screen_height
+        ):
             self.scroll = new_scroll_pos
             self.draw()
 
@@ -86,9 +91,7 @@ class Browser:
     def resize(self, e):
         self.screen_height = e.height
         self.screen_width = e.width
-        self.display_list, self.doc_height = layout(
-            self.text, width=self.screen_width, rtl=self.rtl
-        )
+        self.layout()
         self.draw()
 
 
@@ -100,6 +103,6 @@ if __name__ == "__main__":
     parser.add_argument("--rtl", action="store_true")
     args = parser.parse_args()
 
-    url: DataURL | FileURL | HttpURL = URL.create(args.url)
+    url = URL.create(args.url)
     Browser(args.rtl).load(url)
     tkinter.mainloop()
