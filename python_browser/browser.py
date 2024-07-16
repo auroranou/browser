@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import tkinter
 
+from parser import HTMLParser
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
-from html_lexer import lex, transform
 from layout import Layout
 from url import URL, AbstractURL
 
@@ -26,18 +26,13 @@ class Browser:
         self.window.bind("<Configure>", self.resize)
 
     def load(self, url: AbstractURL):
-        body, should_view_source = url.request()
-        # Ex. 1-5
-        if should_view_source:
-            self.text = lex(transform(body))
-        else:
-            self.text = lex(body)
-
+        body, _ = url.request()
+        self.nodes = HTMLParser(body).parse()
         self.layout()
         self.draw()
 
     def layout(self):
-        layout = Layout(self.text, self.screen_width, self.rtl)
+        layout = Layout(self.nodes, self.screen_width, self.rtl)
         self.display_list = layout.display_list
         self.doc_height = layout.height
 

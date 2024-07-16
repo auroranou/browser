@@ -4,7 +4,7 @@ from typing import Literal
 
 from constants import HSTEP, VSTEP, WIDTH
 from fonts import FontStyle, FontWeight, get_font
-from html_lexer import Tag, Text
+from parser import Attributes, Element, Text
 
 TextAlign = Literal["right", "left", "center"]
 
@@ -26,10 +26,10 @@ class DisplayListItem:
 
 
 class Layout:
-    def __init__(
-        self, tokens: list[Tag | Text], width: float = WIDTH, rtl: bool = False
-    ):
+    def __init__(self, tree: Element, width: float = WIDTH, rtl: bool = False):
+        self.width = width
         self.rtl = rtl
+
         self.cursor_x = HSTEP
         self.cursor_y = VSTEP
         self.size = 12
@@ -41,68 +41,27 @@ class Layout:
         self.line: list[LineItem] = []
         self.display_list: list[DisplayListItem] = []
 
-        self.height = self.cursor_y
-        self.width = width
-
-        for t in tokens:
-            self.token(t)
-
+        self.recurse(tree)
         self.flush()
 
-    def token(self, token: Tag | Text):
-        if isinstance(token, Text):
+        # Set height after all nodes are evaluated
+        self.height = self.cursor_y
+
+    def recurse(self, tree: Text | Element):
+        if isinstance(tree, Text):
             # Ex. 3-5
             if self.in_pre_tag:
                 # Split on newline to preserve internal whitespace
-                for line in token.text.split("\n"):
+                for line in tree.text.split("\n"):
                     self._handle_pre(line)
             else:
-                for word in token.text.split():
+                for word in tree.text.split():
                     self.word(word)
-        elif isinstance(token, Tag):
-            if not token.tag.startswith("/"):
-                self.parent_tag = token.tag
-                if token.tag == "i":
-                    self.style = "italic"
-                elif token.tag == "b":
-                    self.weight = "bold"
-                elif token.tag == "small":
-                    self.size -= 2
-                elif token.tag == "big":
-                    self.size += 4
-                elif token.tag == "sup":
-                    self.size /= 2
-                elif token.tag == "br":
-                    self.flush()
-                elif token.tag == 'h1 class="title"':
-                    self.text_align = "center"
-                elif token.tag == "pre":
-                    # Make sure partial lines are flushed before layout out <pre> contents
-                    self.flush()
-                    self.in_pre_tag = True
-            else:
-                self.parent_tag = None
-                if token.tag == "/i":
-                    self.style = "roman"
-                elif token.tag == "/b":
-                    self.weight = "normal"
-                elif token.tag == "/small":
-                    self.size += 2
-                elif token.tag == "/big":
-                    self.size -= 4
-                elif token.tag == "/sup":
-                    self.size *= 2
-                elif token.tag == "/p":
-                    self.flush()
-                    self.cursor_y += VSTEP
-                elif token.tag == "/h1":
-                    self.flush()
-                    self.text_align = "right" if self.rtl else "left"
-                elif token.tag == "/pre":
-                    self.in_pre_tag = False
-
-        self.height = self.cursor_y
-        return self.display_list
+        elif isinstance(tree, Element):
+            self.open_tag(tree.tag, tree.attributes)
+            for child in tree.children:
+                self.recurse(child)
+            self.close_tag(tree.tag)
 
     # Ex. 3-4
     def _handle_abbr(self, word: str):
@@ -227,3 +186,40 @@ class Layout:
         self.cursor_y = baseline + 1.25 * max_descent
         self.cursor_x = HSTEP
         self.line = []
+
+    def open_tag(self, tag: str, attrs: Attributes):
+        if tag == "i":
+            self.style = "italic"
+        elif tag == "b":
+            self.weight = "bold"
+        elif tag == "small":
+            self.size -= 2
+        elif tag == "big":
+            self.size += 4
+        elif tag == "br":
+            self.flush()
+        elif tag == "h1":
+            if "class" in attrs and "title" in attrs["class"]:
+                self.text_align = "center"
+        elif tag == "pre":
+            # Make sure partial lines are flushed before layout out <pre>
+            self.flush()
+            self.in_pre_tag = True
+
+    def close_tag(self, tag):
+        if tag == "i":
+            self.style = "roman"
+        elif tag == "b":
+            self.weight = "normal"
+        elif tag == "small":
+            self.size += 2
+        elif tag == "big":
+            self.size -= 4
+        elif tag == "p":
+            self.flush()
+            self.cursor_y += VSTEP
+        elif tag == "h1":
+            self.flush()
+            self.text_align = "right" if self.rtl else "left"
+        elif tag == "pre":
+            self.in_pre_tag = False
