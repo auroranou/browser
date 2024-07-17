@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
+import tkinter
 
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
 from html_lexer import lex, transform
 from layout import layout
-import tkinter
 from url import URL, AbstractURL
 
 

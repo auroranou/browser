@@ -1,7 +1,7 @@
 ENTITIES = {"&gt;": ">", "&lt;": "<"}
 
 
-def lex(body):
+def lex(body: str):
     text = ""
     in_tag = False
 
@@ -37,7 +37,7 @@ def lex(body):
 
 
 # Ex. 1-5
-def transform(body):
+def transform(body: str):
     text = ""
 
     for c in body:
