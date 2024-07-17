@@ -26,6 +26,8 @@ class URL:
             return DataURL(url)
         elif url.startswith("file:"):
             return FileURL(url)
+        elif url.startswith("about:blank"):
+            return FileURL("blank.html")
         else:
             return HttpURL(url)
 
