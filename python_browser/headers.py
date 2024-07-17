@@ -7,7 +7,7 @@ def make_headers(headers: dict[str, str]):
 
 
 def parse_cache_control_header(cache_control: str | None) -> dict[str, str | bool]:
-    directives = {}
+    directives: dict[str, str | bool] = {}
 
     if not cache_control or len(cache_control) == 0:
         return directives

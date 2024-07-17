@@ -1,12 +1,13 @@
 from constants import HSTEP, VSTEP, WIDTH
 
 # X position (right), Y position (bottom), character
-DisplayListItem = tuple[int, int, str]
+DisplayListItem = tuple[float | int, float | int, str]
 
 
 def layout(text: str, width: int = WIDTH) -> tuple[list[DisplayListItem], float]:
     display_list = []
-    cursor_x, cursor_y = HSTEP, VSTEP
+    cursor_x: float = HSTEP
+    cursor_y: float = VSTEP
 
     for c in text:
         display_list.append((cursor_x, cursor_y, c))
