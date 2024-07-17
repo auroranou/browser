@@ -130,7 +130,7 @@ class HttpURL(AbstractURL):
                 self.path = location
             else:
                 self._parse_url(location)
-            self.request()
+            return self.request()
 
     # Ex. 1-9
     def _read_chunks(self, response: BufferedReader):
@@ -156,10 +156,12 @@ class HttpURL(AbstractURL):
         if should_cache:
             browser_cache.add(self.url, content, int(max_age))
 
-    def request(self):
+    def request(self) -> tuple[str, bool]:
         # Check cache for this URL first and return content immediately if found
         if browser_cache.has(self.url):
-            return browser_cache.get(self.url)
+            body = browser_cache.get(self.url)
+            if body:
+                return body, False
 
         s = self._connect()
         request = self._build_request()
@@ -171,13 +173,13 @@ class HttpURL(AbstractURL):
         # Read out response parts; status line is first line
         statusline = response.readline().decode("utf-8")
         version, status, explanation = statusline.split(" ", 2)
-
-        # Parse response headers
         response_headers = self._parse_response_headers(response)
 
         # Handle 3xx redirects
         if status.startswith("3") and "location" in response_headers:
-            self._handle_redirect(response_headers.get("location"))
+            content = self._handle_redirect(response_headers.get("location"))
+            if content:
+                return content
 
         # Handle decompression and chunking
         if response_headers.get("content-encoding") == "gzip":

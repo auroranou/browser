@@ -51,7 +51,7 @@ class socket:
             stream = io.TextIOWrapper(stream, encoding=encoding, newline=newline)
             stream.mode = mode
         else:
-            assert mode == "b", "If no file encoding is passed, must pass 'b' mode"
+            assert "b" in mode, "If no file encoding is passed, must pass 'b' mode"
 
         return stream
 

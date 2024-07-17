@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import mock_open, patch
 
 from python_browser.url import URL, DataURL, FileURL, HttpURL
+from python_browser.tests.utils import socket, ssl
 
 
 class TestURL(unittest.TestCase):
@@ -43,11 +44,41 @@ class TestURL(unittest.TestCase):
             result = url.request()
             self.assertEqual(result, "data")
 
-    # def test_request_http_url(self):
+    def test_request_http_url(self):
+        socket.patch().start()
+        url = "http://browser.engineering/examples/example1-simple.html"
+        socket.respond(
+            url, b"HTTP/1.0 200 OK\r\n" + b"Header1: Value1\r\n\r\n" + b"Body text"
+        )
+        body, _ = HttpURL(url).request()
+        assert body == "Body text"
 
-    # def test_request_https_url(self):
+    def test_request_https_url(self):
+        socket.patch().start()
+        ssl.patch().start()
+        url = "https://browser.engineering/examples/example1-simple.html"
+        socket.respond(
+            url, b"HTTP/1.0 200 OK\r\n" + b"Header1: Value1\r\n\r\n" + b"Body text"
+        )
+        body, _ = HttpURL(url).request()
+        assert body == "Body text"
 
-    # def test_request_redirect(self):
+    def test_request_redirect(self):
+        socket.patch().start()
+        ssl.patch().start()
+        orig_url = "http://browser.engineering/redirect"
+        final_url = "https://browser.engineering/http.html"
+        socket.respond(
+            orig_url,
+            b"HTTP/1.0 301 Moved permanently\r\n"
+            + b"Location:https://browser.engineering/http.html\r\n\r\n",
+        )
+        socket.respond(
+            final_url,
+            b"HTTP/1.0 200 OK\r\n" + b"Header1: Value1\r\n\r\n" + b"Body text",
+        )
+        body, _ = HttpURL(orig_url).request()
+        assert body == "Body text"
 
 
 if __name__ == "__main__":
