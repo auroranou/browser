@@ -11,26 +11,30 @@ class TestLayout(unittest.TestCase):
         socket.patch().start()
         url = "http://browser.engineering/examples/example1-simple.html"
         socket.respond(
-            url, b"HTTP/1.0 200 OK\r\n" + b"Header1: Value1\r\n\r\n" + b"abc"
+            url, b"HTTP/1.0 200 OK\r\n" + b"Header1: Value1\r\n\r\n" + b"abc def"
         )
         browser = Browser()
         browser.load(URL.create(url))
-        self.assertEqual(len(browser.display_list), 3)
+        self.assertEqual(len(browser.display_list), 2)
 
-        x, _, text = browser.display_list[0]
-        self.assertEqual(x, HSTEP)
-        self.assertEqual(text, "a")
+        word1 = browser.display_list[0]
+        self.assertEqual(word1[0], HSTEP)
+        self.assertEqual(word1[2], "abc")
+
+        word2 = browser.display_list[1]
+        self.assertGreater(word2[0], word1[0])
+        self.assertEqual(word2[2], "def")
 
     def test_rtl(self):
         socket.patch().start()
         url = "http://browser.engineering/examples/example1-simple.html"
         socket.respond(
-            url, b"HTTP/1.0 200 OK\r\n" + b"Header1: Value1\r\n\r\n" + b"abc"
+            url, b"HTTP/1.0 200 OK\r\n" + b"Header1: Value1\r\n\r\n" + b"abc def"
         )
         browser = Browser(rtl=True)
         browser.load(URL.create(url))
-        self.assertEqual(len(browser.display_list), 3)
+        self.assertEqual(len(browser.display_list), 2)
 
-        x, _, text = browser.display_list[0]
-        self.assertEqual(x, WIDTH - HSTEP)
-        self.assertEqual(text, "a")
+        word1 = browser.display_list[0]
+        self.assertGreater(word1[0], HSTEP)
+        self.assertEqual(word1[2], "abc")

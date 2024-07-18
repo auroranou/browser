@@ -84,6 +84,9 @@ class Layout:
 
         for x, word, font in self.line:
             y = baseline - font.metrics("ascent")
+            if self.rtl:
+                x_offset = self.width - self.cursor_x
+                x += x_offset
             self.display_list.append((x, y, word, font))
 
         max_descent = max([metric["descent"] for metric in metrics])

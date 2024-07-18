@@ -33,10 +33,11 @@ class Browser:
         else:
             self.text = lex(body)
 
+        self.layout()
         self.draw()
 
     def layout(self):
-        layout = Layout(self.text, self.screen_width)
+        layout = Layout(self.text, self.screen_width, self.rtl)
         self.display_list = layout.display_list
         self.doc_height = layout.height
 

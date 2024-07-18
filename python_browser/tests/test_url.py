@@ -35,14 +35,14 @@ class TestURL(unittest.TestCase):
 
     def test_request_data_url(self):
         url = DataURL("data:text/html,Hello world!")
-        result = url.request()
-        self.assertEqual(result, "Hello world!")
+        body, _ = url.request()
+        self.assertEqual(body, "Hello world!")
 
     def test_request_file_url(self):
         with patch("builtins.open", mock_open(read_data="data")):
             url = FileURL("file:///Users/test/file.pdf")
-            result = url.request()
-            self.assertEqual(result, "data")
+            body, _ = url.request()
+            self.assertEqual(body, "data")
 
     def test_request_http_url(self):
         socket.patch().start()
