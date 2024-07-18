@@ -4,11 +4,13 @@ import tkinter
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
 from html_lexer import lex, transform
 from layout import layout
+from url import DataURL, FileURL, HttpURL
 from url import URL, AbstractURL
 
 
 class Browser:
-    def __init__(self):
+    def __init__(self, rtl: bool = False):
+        self.rtl = rtl
         self.scroll = 0
         self.screen_height = HEIGHT
         self.screen_width = WIDTH
@@ -32,7 +34,7 @@ class Browser:
         else:
             self.text = lex(body)
 
-        self.display_list, self.doc_height = layout(self.text)
+        self.display_list, self.doc_height = layout(self.text, rtl=self.rtl)
         self.draw()
 
     def draw(self):
@@ -84,13 +86,20 @@ class Browser:
     def resize(self, e):
         self.screen_height = e.height
         self.screen_width = e.width
-        self.display_list, self.doc_height = layout(self.text, self.screen_width)
+        self.display_list, self.doc_height = layout(
+            self.text, width=self.screen_width, rtl=self.rtl
+        )
         self.draw()
 
 
 if __name__ == "__main__":
-    import sys
+    import argparse
 
-    url = URL.create(sys.argv[1])
-    Browser().load(url)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("url")
+    parser.add_argument("--rtl", action="store_true")
+    args = parser.parse_args()
+
+    url: DataURL | FileURL | HttpURL = URL.create(args.url)
+    Browser(args.rtl).load(url)
     tkinter.mainloop()
