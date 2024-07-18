@@ -44,15 +44,21 @@ class Browser:
     def draw(self):
         self.canvas.delete("all")
 
-        for x, y, c, f in self.display_list:
+        for item in self.display_list:
             # Don't draw characters below viewing window
-            if y > self.scroll + self.screen_height:
+            if item.y > self.scroll + self.screen_height:
                 continue
             # Or above it
-            if y + VSTEP < self.scroll:
+            if item.y + VSTEP < self.scroll:
                 continue
 
-            self.canvas.create_text(x, y - self.scroll, text=c, font=f, anchor="nw")
+            self.canvas.create_text(
+                item.x,
+                item.y - self.scroll,
+                text=item.word,
+                font=item.font,
+                anchor="nw",
+            )
 
         if self.doc_height > self.screen_height:
             self.draw_scrollbar()
