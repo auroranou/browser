@@ -39,6 +39,27 @@ class TestLayout(unittest.TestCase):
         self.assertGreater(word1.x, HSTEP)
         self.assertEqual(word1.word, "abc")
 
+    def test_center_title(self):
+        socket.patch().start()
+        url = "http://browser.engineering/examples/example1-simple.html"
+        socket.respond(
+            url,
+            b"HTTP/1.0 200 OK\r\n"
+            + b"Header1: Value1\r\n\r\n"
+            + b'<h1 class="title">abc</h1><div>def</div>',
+        )
+        browser = Browser()
+        browser.load(URL.create(url))
+        self.assertEqual((len(browser.display_list)), 2)
+
+        word1 = browser.display_list[0]
+        word2 = browser.display_list[1]
+
+        # First word should be centered, so x coord is greater than default
+        self.assertGreater(word1.x, HSTEP)
+        # Second word should be on a new line
+        self.assertGreater(word2.y, word1.y)
+
     def test_superscript(self):
         socket.patch().start()
         url = "http://browser.engineering/examples/example1-simple.html"

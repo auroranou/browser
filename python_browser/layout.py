@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 import tkinter.font
-from typing import Literal, Union
+from typing import Literal
 
 from constants import HSTEP, VSTEP, WIDTH
-from fonts import get_font
+from fonts import FontStyle, FontWeight, get_font
 from html_lexer import Tag, Text
+
+TextAlign = Literal["right", "left", "center"]
 
 
 @dataclass
@@ -31,8 +33,9 @@ class Layout:
         self.cursor_x = HSTEP
         self.cursor_y = VSTEP
         self.size = 12
-        self.style: Literal["roman", "italic"] = "roman"
-        self.weight: Literal["normal", "bold"] = "normal"
+        self.style: FontStyle = "roman"
+        self.weight: FontWeight = "normal"
+        self.text_align: TextAlign = "right" if rtl else "left"
 
         self.parent_tag = None
         self.line: list[LineItem] = []
@@ -65,6 +68,8 @@ class Layout:
                     self.size /= 2
                 elif token.tag == "br":
                     self.flush()
+                elif token.tag == 'h1 class="title"':
+                    self.text_align = "center"
             else:
                 self.parent_tag = None
                 if token.tag == "/i":
@@ -80,6 +85,9 @@ class Layout:
                 elif token.tag == "/p":
                     self.flush()
                     self.cursor_y += VSTEP
+                elif token.tag == "/h1":
+                    self.flush()
+                    self.text_align = "right" if self.rtl else "left"
 
         self.height = self.cursor_y
         return self.display_list
@@ -111,8 +119,11 @@ class Layout:
             if item.parent_tag == "sup":
                 y = baseline - max_ascent
 
-            if self.rtl:
+            if self.text_align == "right":
                 x_offset = self.width - self.cursor_x
+                x += x_offset
+            elif self.text_align == "center":
+                x_offset = (self.width - self.cursor_x) / 2
                 x += x_offset
 
             self.display_list.append(
