@@ -15,10 +15,12 @@ class LineItem:
     parent_tag: str | None
 
 
-# X position (right), Y position (bottom), word, font
 @dataclass
-class DisplayListItem(LineItem):
+class DisplayListItem:
+    x: float
     y: float
+    word: str
+    font: tkinter.font.Font
 
 
 class Layout:
@@ -119,7 +121,6 @@ class Layout:
                     y=y,
                     word=item.word,
                     font=item.font,
-                    parent_tag=item.parent_tag,
                 )
             )
 
