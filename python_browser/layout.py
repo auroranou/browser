@@ -1,9 +1,10 @@
 from dataclasses import dataclass
+import re
 import tkinter.font
 from typing import Literal
 
 from constants import HSTEP, VSTEP, WIDTH
-from fonts import FontStyle, FontWeight, get_font
+from fonts import FontStyle, FontWeight, get_font, get_mono_font
 from html_lexer import Tag, Text
 
 TextAlign = Literal["right", "left", "center"]
@@ -36,6 +37,7 @@ class Layout:
         self.style: FontStyle = "roman"
         self.weight: FontWeight = "normal"
         self.text_align: TextAlign = "right" if rtl else "left"
+        self.in_pre_tag = False
 
         self.parent_tag = None
         self.line: list[LineItem] = []
@@ -51,8 +53,13 @@ class Layout:
 
     def token(self, token: Tag | Text):
         if isinstance(token, Text):
-            for word in token.text.split():
-                self.word(word)
+            if self.in_pre_tag:
+                # Preserve whitespaces in <pre> tags
+                for word in re.split(r"(\s+)", token.text):
+                    self._handle_pre(word)
+            else:
+                for word in token.text.split():
+                    self.word(word)
         elif isinstance(token, Tag):
             if not token.tag.startswith("/"):
                 self.parent_tag = token.tag
@@ -70,6 +77,8 @@ class Layout:
                     self.flush()
                 elif token.tag == 'h1 class="title"':
                     self.text_align = "center"
+                elif token.tag == "pre":
+                    self.in_pre_tag = True
             else:
                 self.parent_tag = None
                 if token.tag == "/i":
@@ -88,6 +97,8 @@ class Layout:
                 elif token.tag == "/h1":
                     self.flush()
                     self.text_align = "right" if self.rtl else "left"
+                elif token.tag == "/pre":
+                    self.in_pre_tag = False
 
         self.height = self.cursor_y
         return self.display_list
@@ -131,6 +142,22 @@ class Layout:
             self.cursor_x += char_w
 
         self.cursor_x += curr_font.measure(" ")
+
+    def _handle_pre(self, word: str):
+        font = get_mono_font()
+        w = font.measure(word)
+
+        self.line.append(
+            LineItem(x=self.cursor_x, word=word, font=font, parent_tag=self.parent_tag)
+        )
+
+        num_newlines = word.count("\n")
+        # FIXME Move cursor_y down by set amount for each new line
+        for _ in range(num_newlines):
+            self.flush()
+            # self.cursor_y += VSTEP
+
+        self.cursor_x += w
 
     def word(self, word: str):
         if self.parent_tag == "abbr":

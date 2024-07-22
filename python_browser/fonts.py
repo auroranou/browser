@@ -16,3 +16,11 @@ def get_font(size: int, weight: FontWeight, style: FontStyle):
         label = tkinter.Label(font=font)
         FONTS[key] = (font, label)
     return FONTS[key][0]
+
+
+def get_mono_font():
+    mono_font = tkinter.font.Font(
+        family="Courier New", size=12, weight="normal", slant="roman"
+    )
+    tkinter.Label(font=mono_font)
+    return mono_font
