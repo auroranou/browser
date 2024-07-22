@@ -92,7 +92,51 @@ class Layout:
         self.height = self.cursor_y
         return self.display_list
 
+    def _handle_abbr(self, word: str):
+        assert self.parent_tag == "abbr"
+
+        # Inside an <abbr> tag, lower-case letters should be small, capitalized, and bold,
+        abbr_font = get_font(int(self.size - 2), "bold", "roman")
+        # while all other characters (upper case, numbers, etc.) should be drawn in the normal font
+        curr_font = get_font(int(self.size), self.weight, self.style)
+
+        # If the <abbr> word won't fit on the current line, flush first
+        word_w = curr_font.measure(word)
+        if self.cursor_x + word_w > WIDTH - HSTEP:
+            self.flush()
+
+        # Measure and append individual characters since they may vary
+        for char in word:
+            if char.isupper() or char.isnumeric():
+                char_w = curr_font.measure(char)
+                self.line.append(
+                    LineItem(
+                        x=self.cursor_x,
+                        word=char,
+                        font=curr_font,
+                        parent_tag=self.parent_tag,
+                    )
+                )
+            else:
+                char_w = abbr_font.measure(char)
+                self.line.append(
+                    LineItem(
+                        x=self.cursor_x,
+                        word=char.upper(),
+                        font=abbr_font,
+                        parent_tag=self.parent_tag,
+                    )
+                )
+
+            self.cursor_x += char_w
+
+        self.cursor_x += curr_font.measure(" ")
+
     def word(self, word: str):
+        if self.parent_tag == "abbr":
+            self._handle_abbr(word)
+            return
+
         font = get_font(int(self.size), self.weight, self.style)
         w = font.measure(word)
 
