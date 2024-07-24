@@ -176,8 +176,13 @@ class Layout:
         )
         w = font.measure(word)
 
-        if self.cursor_x + w > WIDTH - HSTEP:
-            self.flush()
+        if self.cursor_x + w > self.width - HSTEP:
+            if "&shy;" in word:
+                for substring in word.split("&shy;"):
+                    self.word(substring)
+                return
+            else:
+                self.flush()
 
         self.line.append(
             LineItem(x=self.cursor_x, word=word, font=font, parent_tag=self.parent_tag)
