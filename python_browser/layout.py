@@ -37,7 +37,6 @@ class Layout:
         self.style: FontStyle = "roman"
         self.weight: FontWeight = "normal"
         self.text_align: TextAlign = "right" if rtl else "left"
-        self.in_pre_tag = False
 
         self.parent_tag = None
         self.line: list[LineItem] = []
@@ -108,6 +107,7 @@ class Layout:
         self.height = self.cursor_y
         return self.display_list
 
+    # Ex. 3-4
     def _handle_abbr(self, word: str):
         assert self.parent_tag == "abbr"
 
@@ -194,12 +194,15 @@ class Layout:
             y = baseline - item.font.metrics("ascent")
             x = item.x
 
+            # Ex. 3-2
             if item.parent_tag == "sup":
                 y = baseline - max_ascent
 
+            # Ex. 2-7
             if self.text_align == "right":
                 x_offset = self.width - self.cursor_x
                 x += x_offset
+            # Ex. 3-1
             elif self.text_align == "center":
                 x_offset = (self.width - self.cursor_x) / 2
                 x += x_offset
