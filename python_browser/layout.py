@@ -46,6 +46,9 @@ class Layout:
         self.height = self.cursor_y
         self.width = width
 
+        # Mono font doesn't live in the font cache, so fetch it once here
+        self.mono_font = get_mono_font()
+
         for t in tokens:
             self.token(t)
 
@@ -53,10 +56,11 @@ class Layout:
 
     def token(self, token: Tag | Text):
         if isinstance(token, Text):
-            if self.in_pre_tag:
-                # Preserve whitespaces in <pre> tags
-                for word in re.split(r"(\s+)", token.text):
-                    self._handle_pre(word)
+            # Ex. 3-5
+            if self.parent_tag == "pre":
+                # Split on newline to preserve internal whitespace
+                for line in token.text.split("\n"):
+                    self._handle_pre(line)
             else:
                 for word in token.text.split():
                     self.word(word)
@@ -78,7 +82,8 @@ class Layout:
                 elif token.tag == 'h1 class="title"':
                     self.text_align = "center"
                 elif token.tag == "pre":
-                    self.in_pre_tag = True
+                    # Make sure partial lines are flushed before layout out <pre> contents
+                    self.flush()
             else:
                 self.parent_tag = None
                 if token.tag == "/i":
@@ -143,21 +148,23 @@ class Layout:
 
         self.cursor_x += curr_font.measure(" ")
 
-    def _handle_pre(self, word: str):
-        font = get_mono_font()
-        w = font.measure(word)
-
-        self.line.append(
-            LineItem(x=self.cursor_x, word=word, font=font, parent_tag=self.parent_tag)
-        )
-
-        num_newlines = word.count("\n")
-        # FIXME Move cursor_y down by set amount for each new line
-        for _ in range(num_newlines):
+    # Ex. 3-5
+    def _handle_pre(self, line: str):
+        if len(line):
+            self.line.append(
+                LineItem(
+                    x=self.cursor_x,
+                    word=line,
+                    font=self.mono_font,
+                    parent_tag=self.parent_tag,
+                )
+            )
             self.flush()
-            # self.cursor_y += VSTEP
-
-        self.cursor_x += w
+        else:
+            # Because of how we split the text token inside of <pre>, an 'empty' line = newline
+            # Increment by VSTEP to mimic a newline instead of fiddling with font metrics
+            self.cursor_y += VSTEP
+            self.cursor_x = HSTEP
 
     def word(self, word: str):
         if self.parent_tag == "abbr":
