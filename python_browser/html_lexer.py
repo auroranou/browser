@@ -20,9 +20,6 @@ def lex(body: str):
     in_entity = False
     maybe_entity_str = ""
 
-    # Ex. 3-5
-    in_pre_tag = False
-
     for c in body:
         if c == "<":
             in_tag = True
@@ -30,17 +27,11 @@ def lex(body: str):
                 out.append(Text(buffer))
             buffer = ""
         elif c == ">":
-            tag_name = buffer
-            if tag_name == "/pre":
-                in_pre_tag = False
-            elif tag_name == "pre":
-                in_pre_tag = True
-
-            out.append(Tag(buffer))
+            in_tag = False
+            if buffer:
+                print(buffer)
+                out.append(Tag(buffer))
             buffer = ""
-
-            if not in_pre_tag:
-                in_tag = False
         elif c == "&":
             in_entity = True
             maybe_entity_str += c

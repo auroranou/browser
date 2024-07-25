@@ -1,10 +1,9 @@
 from dataclasses import dataclass
-import re
 import tkinter.font
 from typing import Literal
 
 from constants import HSTEP, VSTEP, WIDTH
-from fonts import FontStyle, FontWeight, get_font, get_mono_font
+from fonts import FontStyle, FontWeight, get_font
 from html_lexer import Tag, Text
 
 TextAlign = Literal["right", "left", "center"]
@@ -37,16 +36,13 @@ class Layout:
         self.style: FontStyle = "roman"
         self.weight: FontWeight = "normal"
         self.text_align: TextAlign = "right" if rtl else "left"
-
+        self.in_pre_tag = False
         self.parent_tag = None
         self.line: list[LineItem] = []
         self.display_list: list[DisplayListItem] = []
 
         self.height = self.cursor_y
         self.width = width
-
-        # Mono font doesn't live in the font cache, so fetch it once here
-        self.mono_font = get_mono_font()
 
         for t in tokens:
             self.token(t)
@@ -56,7 +52,7 @@ class Layout:
     def token(self, token: Tag | Text):
         if isinstance(token, Text):
             # Ex. 3-5
-            if self.parent_tag == "pre":
+            if self.in_pre_tag:
                 # Split on newline to preserve internal whitespace
                 for line in token.text.split("\n"):
                     self._handle_pre(line)
@@ -83,6 +79,7 @@ class Layout:
                 elif token.tag == "pre":
                     # Make sure partial lines are flushed before layout out <pre> contents
                     self.flush()
+                    self.in_pre_tag = True
             else:
                 self.parent_tag = None
                 if token.tag == "/i":
@@ -150,15 +147,15 @@ class Layout:
 
     # Ex. 3-5
     def _handle_pre(self, line: str):
+        font = get_font(int(self.size), self.weight, self.style, "Courier New")
         if len(line):
-            self.line.append(
-                LineItem(
-                    x=self.cursor_x,
-                    word=line,
-                    font=self.mono_font,
-                    parent_tag=self.parent_tag,
-                )
-            )
+            words = line.split(" ")
+            for word in words:
+                if len(word):
+                    self.word(word)
+                else:
+                    self.cursor_x += font.measure(" ")
+
             self.flush()
         else:
             # Because of how we split the text token inside of <pre>, an 'empty' line = newline
@@ -171,7 +168,12 @@ class Layout:
             self._handle_abbr(word)
             return
 
-        font = get_font(int(self.size), self.weight, self.style)
+        font = get_font(
+            int(self.size),
+            self.weight,
+            self.style,
+            family="Courier New" if self.in_pre_tag else "",
+        )
         w = font.measure(word)
 
         if self.cursor_x + w > WIDTH - HSTEP:

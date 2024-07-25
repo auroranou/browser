@@ -1,7 +1,7 @@
 import unittest
 
 from python_browser.browser import Browser
-from python_browser.constants import HSTEP, WIDTH
+from python_browser.constants import HSTEP, VSTEP, WIDTH
 from python_browser.tests.utils import socket
 from python_browser.url import URL
 
@@ -78,3 +78,21 @@ class TestLayout(unittest.TestCase):
         for char in browser.display_list:
             if char.word.isalpha():
                 self.assertTrue(char.word.isupper())
+
+    def test_pre(self):
+        browser = self._init_browser("<pre>abc\n\n<b>d  ef</b></pre>")
+        self.assertEqual(len(browser.display_list), 3)
+
+        for word in browser.display_list:
+            self.assertEqual(word.font.cget("family"), "Courier New")
+
+        abc, d, ef = browser.display_list[:3]
+        self.assertEqual(abc.font.cget("weight"), "normal")
+        self.assertEqual(d.font.cget("weight"), "bold")
+        self.assertEqual(ef.font.cget("weight"), "bold")
+
+        # 2 newlines should be preserved between 'abc' and 'd'
+        self.assertGreaterEqual(d.y - abc.y, VSTEP * 2)
+
+        # 2 spaces should be preserved between 'd' and 'ef'
+        self.assertGreaterEqual(ef.x - d.x, d.font.measure(" ") * 2)
