@@ -7,14 +7,21 @@ from python_browser.url import URL
 
 
 class TestLayout(unittest.TestCase):
-    def test_load(self):
+    def _init_browser(self, response_body: str):
         socket.patch().start()
-        url = "http://browser.engineering/examples/example1-simple.html"
+        url = "http://browser.engineering/example.html"
         socket.respond(
-            url, b"HTTP/1.0 200 OK\r\n" + b"Header1: Value1\r\n\r\n" + b"abc def"
+            url,
+            b"HTTP/1.0 200 OK\r\n"
+            + b"Header1: Value1\r\n\r\n"
+            + bytes(response_body, encoding="utf-8"),
         )
         browser = Browser()
         browser.load(URL.create(url))
+        return browser
+
+    def test_load(self):
+        browser = self._init_browser("abc def")
         self.assertEqual(len(browser.display_list), 2)
 
         word1 = browser.display_list[0]
@@ -26,13 +33,7 @@ class TestLayout(unittest.TestCase):
         self.assertEqual(word2.word, "def")
 
     def test_rtl(self):
-        socket.patch().start()
-        url = "http://browser.engineering/examples/example1-simple.html"
-        socket.respond(
-            url, b"HTTP/1.0 200 OK\r\n" + b"Header1: Value1\r\n\r\n" + b"abc def"
-        )
-        browser = Browser(rtl=True)
-        browser.load(URL.create(url))
+        browser = self._init_browser("abc def")
         self.assertEqual(len(browser.display_list), 2)
 
         word1 = browser.display_list[0]
@@ -40,16 +41,7 @@ class TestLayout(unittest.TestCase):
         self.assertEqual(word1.word, "abc")
 
     def test_center_title(self):
-        socket.patch().start()
-        url = "http://browser.engineering/examples/example1-simple.html"
-        socket.respond(
-            url,
-            b"HTTP/1.0 200 OK\r\n"
-            + b"Header1: Value1\r\n\r\n"
-            + b'<h1 class="title">abc</h1><div>def</div>',
-        )
-        browser = Browser()
-        browser.load(URL.create(url))
+        browser = self._init_browser('<h1 class="title">abc</h1><div>def</div>')
         self.assertEqual((len(browser.display_list)), 2)
 
         word1 = browser.display_list[0]
@@ -61,16 +53,7 @@ class TestLayout(unittest.TestCase):
         self.assertGreater(word2.y, word1.y)
 
     def test_superscript(self):
-        socket.patch().start()
-        url = "http://browser.engineering/examples/example1-simple.html"
-        socket.respond(
-            url,
-            b"HTTP/1.0 200 OK\r\n"
-            + b"Header1: Value1\r\n\r\n"
-            + b"<div>abc <sup>def</sup></div>",
-        )
-        browser = Browser()
-        browser.load(URL.create(url))
+        browser = self._init_browser("<div>abc <sup>def</sup></div>")
         self.assertEqual(len(browser.display_list), 2)
 
         word1 = browser.display_list[0]
@@ -80,3 +63,18 @@ class TestLayout(unittest.TestCase):
         ascent1 = word1.font.metrics().get("ascent")
         ascent2 = word2.font.metrics().get("ascent")
         self.assertGreater(ascent1, ascent2)
+
+    def test_abbr(self):
+        browser = self._init_browser("<abbr>Hello World 123</abbr>")
+        self.assertEqual(len(browser.display_list), 13)
+
+        normal_char = browser.display_list[0]
+        abbr_char = browser.display_list[1]
+        self.assertGreater(
+            normal_char.font.metrics().get("ascent"),
+            abbr_char.font.metrics().get("ascent"),
+        )
+
+        for char in browser.display_list:
+            if char.word.isalpha():
+                self.assertTrue(char.word.isupper())
