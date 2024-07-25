@@ -1,34 +1,37 @@
-from typing import Union
+from typing import Never, Self
 
 from constants import HEAD_TAGS, SELF_CLOSING_TAGS
 
 Attributes = dict[str, str]
 
 
-class Text:
-    def __init__(self, text: str, parent):
-        self.text = text
-        self.children = []
-        self.parent = parent
-
-    def __repr__(self) -> str:
-        return repr(self.text)
-
-
 class Element:
-    def __init__(self, tag: str, attributes: Attributes, parent):
-        self.tag = tag
-        self.attributes = attributes
-        self.children: list[Union[Text, Element]] = []
-        self.parent = parent
+    def __init__(self, tag: str, attributes: Attributes, parent: Self | None):
+        self.tag: str = tag
+        self.attributes: Attributes = attributes
+        self.children: list[Node] = []
+        self.parent: Element | None = parent
 
     def __repr__(self) -> str:
         return f"<{self.tag}>"
 
 
+class Text:
+    def __init__(self, text: str, parent: Element):
+        self.text: str = text
+        self.children: list[Never] = []
+        self.parent: Element = parent
+
+    def __repr__(self) -> str:
+        return repr(self.text)
+
+
+Node = Element | Text
+
+
 class HTMLParser:
     def __init__(self, body: str):
-        self.body = body
+        self.body: str = body
         self.unfinished: list[Element] = []
 
     def parse(self):
@@ -99,7 +102,7 @@ class HTMLParser:
                 attributes[attrpair.casefold()] = ""
         return tag, attributes
 
-    def implicit_tags(self, tag):
+    def implicit_tags(self, tag: str | None):
         while True:
             open_tags = [node.tag for node in self.unfinished]
             if open_tags == [] and tag != "html":
@@ -126,7 +129,7 @@ class HTMLParser:
         return self.unfinished.pop()
 
 
-def print_tree(node, indent=0):
+def print_tree(node: Node, indent=0):
     print(" " * indent, node)
     for child in node.children:
         print_tree(child, indent + 2)

@@ -4,7 +4,7 @@ from typing import Literal
 
 from constants import HSTEP, VSTEP, WIDTH
 from fonts import FontStyle, FontWeight, get_font
-from parser import Attributes, Element, Text
+from parser import Attributes, Element, Node, Text
 
 TextAlign = Literal["right", "left", "center"]
 
@@ -47,7 +47,7 @@ class Layout:
         # Set height after all nodes are evaluated
         self.height = self.cursor_y
 
-    def recurse(self, tree: Text | Element):
+    def recurse(self, tree: Node):
         if isinstance(tree, Text):
             # Ex. 3-5
             if self.in_pre_tag:
@@ -202,7 +202,7 @@ class Layout:
             if "class" in attrs and "title" in attrs["class"]:
                 self.text_align = "center"
         elif tag == "pre":
-            # Make sure partial lines are flushed before layout out <pre>
+            # Make sure partial lines are flushed before laying out <pre>
             self.flush()
             self.in_pre_tag = True
 
