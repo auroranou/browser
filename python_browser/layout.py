@@ -14,15 +14,11 @@ class LineItem:
     x: float
     word: str
     font: tkinter.font.Font
-    parent_tag: str | None
 
 
 @dataclass
-class DisplayListItem:
-    x: float
+class DisplayListItem(LineItem):
     y: float
-    word: str
-    font: tkinter.font.Font
 
 
 class Layout:
@@ -36,8 +32,10 @@ class Layout:
         self.style: FontStyle = "roman"
         self.weight: FontWeight = "normal"
         self.text_align: TextAlign = "right" if rtl else "left"
+
+        self.in_abbr_tag = False
         self.in_pre_tag = False
-        self.parent_tag = None
+
         self.line: list[LineItem] = []
         self.display_list: list[DisplayListItem] = []
 
@@ -65,8 +63,6 @@ class Layout:
 
     # Ex. 3-4
     def _handle_abbr(self, word: str):
-        assert self.parent_tag == "abbr"
-
         # Inside an <abbr> tag, lower-case letters should be small, capitalized, and bold,
         abbr_font = get_font(int(self.size - 2), "bold", "roman")
         # while all other characters (upper case, numbers, etc.) should be drawn in the normal font
@@ -74,7 +70,7 @@ class Layout:
 
         # If the <abbr> word won't fit on the current line, flush first
         word_w = curr_font.measure(word)
-        if self.cursor_x + word_w > WIDTH - HSTEP:
+        if self.cursor_x + word_w > self.width - HSTEP:
             self.flush()
 
         # Measure and append individual characters since they may vary
@@ -86,7 +82,6 @@ class Layout:
                         x=self.cursor_x,
                         word=char,
                         font=curr_font,
-                        parent_tag=self.parent_tag,
                     )
                 )
             else:
@@ -96,7 +91,6 @@ class Layout:
                         x=self.cursor_x,
                         word=char.upper(),
                         font=abbr_font,
-                        parent_tag=self.parent_tag,
                     )
                 )
 
@@ -123,7 +117,7 @@ class Layout:
             self.cursor_x = HSTEP
 
     def word(self, word: str):
-        if self.parent_tag == "abbr":
+        if self.in_abbr_tag:
             self._handle_abbr(word)
             return
 
@@ -143,9 +137,7 @@ class Layout:
             else:
                 self.flush()
 
-        self.line.append(
-            LineItem(x=self.cursor_x, word=word, font=font, parent_tag=self.parent_tag)
-        )
+        self.line.append(LineItem(x=self.cursor_x, word=word, font=font))
         self.cursor_x += w + font.measure(" ")
 
     def flush(self):
@@ -160,9 +152,9 @@ class Layout:
             y = baseline - item.font.metrics("ascent")
             x = item.x
 
-            # Ex. 3-2
-            if item.parent_tag == "sup":
-                y = baseline - max_ascent
+            # FIXME Ex. 3-2
+            # if item.parent.tag == "sup":
+            #     y = baseline - max_ascent
 
             # Ex. 2-7
             if self.text_align == "right":
@@ -196,17 +188,21 @@ class Layout:
             self.size -= 2
         elif tag == "big":
             self.size += 4
+        elif tag == "sup":
+            self.size /= 2
         elif tag == "br":
             self.flush()
         elif tag == "h1":
             if "class" in attrs and "title" in attrs["class"]:
                 self.text_align = "center"
+        elif tag == "abbr":
+            self.in_abbr_tag = True
         elif tag == "pre":
             # Make sure partial lines are flushed before laying out <pre>
             self.flush()
             self.in_pre_tag = True
 
-    def close_tag(self, tag):
+    def close_tag(self, tag: str):
         if tag == "i":
             self.style = "roman"
         elif tag == "b":
@@ -215,11 +211,15 @@ class Layout:
             self.size += 2
         elif tag == "big":
             self.size -= 4
+        elif tag == "sup":
+            self.size *= 2
         elif tag == "p":
             self.flush()
             self.cursor_y += VSTEP
         elif tag == "h1":
             self.flush()
             self.text_align = "right" if self.rtl else "left"
+        elif tag == "abbr":
+            self.in_abbr_tag = False
         elif tag == "pre":
             self.in_pre_tag = False
