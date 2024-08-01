@@ -1,4 +1,4 @@
-from typing import Never, Self
+from typing import Literal, Never, Self
 
 from constants import HEAD_TAGS, SELF_CLOSING_TAGS
 
@@ -33,26 +33,77 @@ class HTMLParser:
     def __init__(self, body: str):
         self.body: str = body
         self.unfinished: list[Element] = []
+        self.i = 0
+
+    def peek(self, num_chars=0) -> str | None:
+        end_idx = self.i + 1 + num_chars
+
+        if end_idx < len(self.body):
+            return self.body[self.i + 1 : end_idx]
+
+        return None
+
+    def step(self, step_size=1):
+        self.i += step_size
+
+    def consume_until(self, target: str):
+        end_idx = self.i + len(target)
+
+        if end_idx >= len(self.body):
+            return False
+
+        if self.body[self.i : end_idx] == target:
+            self.i = end_idx
+            return True
+
+        self.i += 1
+        self.consume_until(target)
 
     def parse(self):
-        text = ""
+        buffer = ""
         in_tag = False
+        in_comment = False
 
-        for c in self.body:
+        while self.i < len(self.body):
+            c = self.body[self.i]
             if c == "<":
-                in_tag = True
-                if text:
-                    self.add_text(text)
-                text = ""
+                # Ex. 4-1: Don't process comments as nodes
+                if self.peek(3) == "!--":
+                    in_comment = True
+                    self.step(4)
+                    self.consume_until("-->")
+                    in_comment = False
+                else:
+                    in_tag = True
+                    if buffer:
+                        self.add_text(buffer)
+                    buffer = ""
+                    self.step()
             elif c == ">":
-                in_tag = False
-                self.add_tag(text)
-                text = ""
+                if not in_comment:
+                    in_tag = False
+                    self.add_tag(buffer)
+                    buffer = ""
+                self.step()
+            elif c == "&":
+                if self.peek(3) == "lt;":
+                    buffer += "<"
+                    self.step(4)
+                elif self.peek(3) == "gt;":
+                    buffer += ">"
+                    self.step(4)
+                elif self.peek(4) == "shy;":
+                    buffer += "\N{soft hyphen}"
+                    self.step(5)
+                else:
+                    buffer += c
+                    self.step()
             else:
-                text += c
+                buffer += c
+                self.step()
 
-        if not in_tag and text:
-            self.add_text(text)
+        if not in_tag and buffer:
+            self.add_text(buffer)
 
         return self.finish()
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import tkinter
 
-from parser import HTMLParser
+from parser import HTMLParser, print_tree
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
 from layout import Layout
 from url import URL, AbstractURL
@@ -28,6 +28,7 @@ class Browser:
     def load(self, url: AbstractURL):
         body, _ = url.request()
         self.nodes = HTMLParser(body).parse()
+        print_tree(self.nodes)
         self.layout()
         self.draw()
 
