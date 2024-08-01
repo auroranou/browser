@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from python_browser.cache import browser_cache
+from cache import browser_cache
 
 
 url = "https://browser.engineering/examples"

@@ -1,9 +1,9 @@
 import unittest
 
-from python_browser.browser import Browser
-from python_browser.constants import HSTEP, VSTEP, WIDTH
-from python_browser.tests.utils import socket
-from python_browser.url import URL
+from browser import Browser
+from constants import HSTEP, VSTEP, WIDTH
+from tests.utils import socket
+from url import URL
 
 
 class TestLayout(unittest.TestCase):

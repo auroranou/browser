@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import mock_open, patch
 
-from python_browser.url import URL, DataURL, FileURL, HttpURL
-from python_browser.tests.utils import socket, ssl
+from url import URL, DataURL, FileURL, HttpURL
+from tests.utils import socket, ssl
 
 
 class TestURL(unittest.TestCase):
