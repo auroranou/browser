@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import tkinter
 
-from parser import HTMLParser
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
-from layout import Layout
+from layout.layout import DocumentLayout, paint_tree
+from parser import HTMLParser
 from url import URL, AbstractURL
 
 
@@ -32,9 +32,13 @@ class Browser:
         self.draw()
 
     def layout(self):
-        layout = Layout(self.nodes, self.screen_width, self.rtl)
-        self.display_list = layout.display_list
-        self.doc_height = layout.height
+        self.document = DocumentLayout(
+            self.nodes, width=self.screen_width, rtl=self.rtl
+        )
+        self.document.layout()
+        self.display_list = []
+        paint_tree(self.document, self.display_list)
+        self.doc_height = self.document.height
 
     def draw(self):
         self.canvas.delete("all")

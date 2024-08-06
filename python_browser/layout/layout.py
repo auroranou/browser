@@ -1,49 +1,105 @@
-from dataclasses import dataclass
-import tkinter.font
-from typing import Literal
+from typing import Literal, Self
 
-from constants import HSTEP, VSTEP, WIDTH
-from fonts import FontStyle, FontWeight, get_font
+from constants import BLOCK_ELEMENTS, HSTEP, VSTEP, WIDTH
+from layout.fonts import FontStyle, FontWeight, get_font
+from layout.types import AbstractLayout, DisplayListItem, LineItem, TextAlign
 from parser import Attributes, Element, Node, Text
 
-TextAlign = Literal["right", "left", "center"]
 
+# Root of layout tree
+class DocumentLayout(AbstractLayout):
+    def __init__(self, node: Element, width: float = WIDTH, rtl: bool = False):
+        self.node = node
+        self.parent = None
+        self.children: list[BlockLayout] = []
 
-@dataclass
-class LineItem:
-    x: float
-    word: str
-    font: tkinter.font.Font
-
-
-@dataclass
-class DisplayListItem(LineItem):
-    y: float
-
-
-class Layout:
-    def __init__(self, tree: Element, width: float = WIDTH, rtl: bool = False):
+        self.x = HSTEP
+        self.y = VSTEP
         self.width = width
+        self.height = 0
         self.rtl = rtl
 
-        self.cursor_x = HSTEP
-        self.cursor_y = VSTEP
-        self.size = 12
-        self.style: FontStyle = "roman"
-        self.weight: FontWeight = "normal"
-        self.text_align: TextAlign = "right" if rtl else "left"
+    def layout(self):
+        child = BlockLayout(self.node, self, None)
+        self.children.append(child)
+        child.layout()
+        self.height = child.height
 
-        self.in_abbr_tag = False
-        self.in_pre_tag = False
+    def paint(self):
+        return []
 
-        self.line: list[LineItem] = []
+
+class BlockLayout(AbstractLayout):
+    def __init__(
+        self,
+        node: Node,
+        parent: DocumentLayout | Self,
+        previous: Self | None,
+    ):
+        self.node = node
+        self.parent = parent
+        self.previous = previous
+        self.children: list[BlockLayout] = []
         self.display_list: list[DisplayListItem] = []
 
-        self.recurse(tree)
-        self.flush()
+    def has_block_children(self) -> bool:
+        for child in self.node.children:
+            if isinstance(child, Element) and child.tag in BLOCK_ELEMENTS:
+                return True
 
-        # Set height after all nodes are evaluated
-        self.height = self.cursor_y
+        return False
+
+    def layout_mode(self) -> Literal["inline"] | Literal["block"]:
+        if isinstance(self.node, Text):
+            return "inline"
+        if self.has_block_children():
+            return "block"
+        elif self.node.children:
+            return "inline"
+        else:
+            return "block"
+
+    def layout(self):
+        self.x = self.parent.x
+        if self.previous:
+            self.y = self.previous.y + self.previous.height
+        else:
+            self.y = self.parent.y
+
+        self.width = self.parent.width
+        self.rtl = self.parent.rtl
+
+        mode = self.layout_mode()
+        if mode == "block":
+            previous = None
+            for child in self.node.children:
+                next = BlockLayout(child, self, previous)
+                self.children.append(next)
+                previous = next
+        else:
+            self.cursor_x = 0
+            self.cursor_y = 0
+            self.size = 12
+            self.style: FontStyle = "roman"
+            self.weight: FontWeight = "normal"
+            self.text_align: TextAlign = "right" if self.rtl else "left"
+
+            self.in_abbr_tag = False
+            self.in_pre_tag = False
+
+            self.line: list[LineItem] = []
+
+            self.recurse(self.node)
+            self.flush()
+
+        for child in self.children:
+            child.layout()
+
+        if mode == "block":
+            h = sum([child.height for child in self.children])
+            self.height = h
+        else:
+            self.height = self.cursor_y
 
     def recurse(self, tree: Node):
         if isinstance(tree, Text):
@@ -114,7 +170,7 @@ class Layout:
             # Because of how we split the text token inside of <pre>, an 'empty' line = newline
             # Increment by VSTEP to mimic a newline instead of fiddling with font metrics
             self.cursor_y += VSTEP
-            self.cursor_x = HSTEP
+            self.cursor_x = 0
 
     def word(self, word: str):
         if self.in_abbr_tag:
@@ -149,8 +205,8 @@ class Layout:
         baseline = self.cursor_y + 1.25 * max_ascent
 
         for item in self.line:
-            y = baseline - item.font.metrics("ascent")
-            x = item.x
+            x = self.x + item.x
+            y = self.y + baseline - item.font.metrics("ascent")
 
             # FIXME Ex. 3-2
             # if item.parent.tag == "sup":
@@ -176,7 +232,7 @@ class Layout:
 
         max_descent = max([metric["descent"] for metric in metrics])
         self.cursor_y = baseline + 1.25 * max_descent
-        self.cursor_x = HSTEP
+        self.cursor_x = 0
         self.line = []
 
     def open_tag(self, tag: str, attrs: Attributes):
@@ -223,3 +279,15 @@ class Layout:
             self.in_abbr_tag = False
         elif tag == "pre":
             self.in_pre_tag = False
+
+    def paint(self):
+        return self.display_list
+
+
+def paint_tree(
+    layout_object: DocumentLayout | BlockLayout, display_list: list[DisplayListItem]
+):
+    display_list.extend(layout_object.paint())
+
+    for child in layout_object.children:
+        paint_tree(child, display_list)
