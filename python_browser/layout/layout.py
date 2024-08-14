@@ -1,6 +1,7 @@
 from typing import Literal, Self
 
 from constants import BLOCK_ELEMENTS, HSTEP, VSTEP, WIDTH
+from layout.commands import DrawRect, DrawText
 from layout.fonts import FontStyle, FontWeight, get_font
 from layout.types import AbstractLayout, DisplayListItem, LineItem, TextAlign
 from parser import Attributes, Element, Node, Text
@@ -281,11 +282,29 @@ class BlockLayout(AbstractLayout):
             self.in_pre_tag = False
 
     def paint(self):
-        return self.display_list
+        cmds = []
+
+        if isinstance(self.node, Element) and self.node.tag == "pre":
+            cmds.append(
+                DrawRect(
+                    left=self.x,
+                    top=self.y,
+                    right=self.x + self.width,
+                    bottom=self.y + self.height,
+                    color="gray",
+                )
+            )
+
+        if self.layout_mode() == "inline":
+            for item in self.display_list:
+                cmds.append(
+                    DrawText(left=item.x, top=item.y, text=item.word, font=item.font)
+                )
+        return cmds
 
 
 def paint_tree(
-    layout_object: DocumentLayout | BlockLayout, display_list: list[DisplayListItem]
+    layout_object: DocumentLayout | BlockLayout, display_list: list[DrawText | DrawRect]
 ):
     display_list.extend(layout_object.paint())
 

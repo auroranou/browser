@@ -2,6 +2,7 @@
 import tkinter
 
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
+from layout.commands import DrawRect, DrawText
 from layout.layout import DocumentLayout, paint_tree
 from parser import HTMLParser
 from url import URL, AbstractURL
@@ -36,30 +37,23 @@ class Browser:
             self.nodes, width=self.screen_width, rtl=self.rtl
         )
         self.document.layout()
-        self.display_list = []
+        self.display_list: list[DrawRect | DrawText] = []
         paint_tree(self.document, self.display_list)
-        self.doc_height = self.document.height
 
     def draw(self):
         self.canvas.delete("all")
 
-        for item in self.display_list:
+        for cmd in self.display_list:
             # Don't draw characters below viewing window
-            if item.y > self.scroll + self.screen_height:
+            if cmd.top > self.scroll + self.screen_height:
                 continue
             # Or above it
-            if item.y + VSTEP < self.scroll:
+            if cmd.bottom + VSTEP < self.scroll:
                 continue
 
-            self.canvas.create_text(
-                item.x,
-                item.y - self.scroll,
-                text=item.word,
-                font=item.font,
-                anchor="nw",
-            )
+            cmd.execute(self.scroll, self.canvas)
 
-        if self.doc_height > self.screen_height:
+        if self.document.height > self.screen_height:
             self.draw_scrollbar()
 
     # Ex. 2-4
@@ -67,16 +61,20 @@ class Browser:
         scrollbar_width = 12
 
         x0 = self.screen_width - scrollbar_width
-        y0 = self.scroll / self.doc_height * self.screen_height
+        y0 = self.scroll / self.document.height * self.screen_height
         x1 = self.screen_width
-        y1 = (self.scroll + self.screen_height) / self.doc_height * self.screen_height
+        y1 = (
+            (self.scroll + self.screen_height)
+            / self.document.height
+            * self.screen_height
+        )
 
         self.canvas.create_rectangle(x0, y0, x1, y1, fill="blue")
 
     def scrolldown(self, e):
-        if self.scroll < self.doc_height - self.screen_height:
-            self.scroll += SCROLL_STEP
-            self.draw()
+        max_y = max(self.document.height + 2 * VSTEP - self.screen_height, 0)
+        self.scroll = min(self.scroll + SCROLL_STEP, max_y)
+        self.draw()
 
     def scrollup(self, e):
         if self.scroll >= SCROLL_STEP:
@@ -88,7 +86,7 @@ class Browser:
         # Subtract delta instead of adding to account for preferred scrolling direction
         new_scroll_pos = self.scroll - e.delta
         if (new_scroll_pos >= 0) and (
-            new_scroll_pos < self.doc_height - self.screen_height
+            new_scroll_pos < self.document.height - self.screen_height
         ):
             self.scroll = new_scroll_pos
             self.draw()
