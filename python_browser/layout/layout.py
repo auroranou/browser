@@ -115,6 +115,8 @@ class BlockLayout(AbstractLayout):
         if mode == "block":
             previous = None
             for child in self.node.children:
+                if isinstance(child, Element) and child.tag == "head":
+                    continue
                 next = BlockLayout(child, self, previous)
                 self.children.append(next)
                 previous = next
