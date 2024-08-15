@@ -76,11 +76,20 @@ class BlockLayout(AbstractLayout):
         self.display_list: list[DisplayListItem] = []
 
     def has_block_children(self) -> bool:
-        for child in self.node.children:
-            if isinstance(child, Element) and child.tag in BLOCK_ELEMENTS:
-                return True
+        return any(
+            isinstance(child, Element) and child.tag in BLOCK_ELEMENTS
+            for child in self.node.children
+        )
 
-        return False
+    def is_matching_element(self, tag: str) -> bool:
+        return isinstance(self.node, Element) and self.node.tag == tag
+
+    def has_css_class(self, class_name: str) -> bool:
+        return (
+            isinstance(self.node, Element)
+            and "class" in self.node.attributes
+            and class_name in self.node.attributes["class"]
+        )
 
     def layout_mode(self) -> Literal["inline"] | Literal["block"]:
         if isinstance(self.node, Text):
@@ -325,7 +334,7 @@ class BlockLayout(AbstractLayout):
     def paint(self):
         cmds = []
 
-        if isinstance(self.node, Element) and self.node.tag == "pre":
+        if self.is_matching_element("pre"):
             cmds.append(
                 DrawRect(
                     left=self.x,
@@ -333,6 +342,17 @@ class BlockLayout(AbstractLayout):
                     right=self.x + self.width,
                     bottom=self.y + self.height,
                     color="gray",
+                )
+            )
+
+        if self.is_matching_element("nav") and self.has_css_class("links"):
+            cmds.append(
+                DrawRect(
+                    left=self.x,
+                    top=self.y,
+                    right=self.x + self.width,
+                    bottom=self.y + self.height,
+                    color="lightgray",
                 )
             )
 
