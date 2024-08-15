@@ -11,7 +11,7 @@ class DrawText:
 
     @property
     def bottom(self) -> float:
-        return self.top + self.font.metrics().get("ascent")
+        return self.top + self.font.metrics().get("linespace")
 
     def execute(self, scroll: float, canvas: tkinter.Canvas):
         canvas.create_text(

@@ -1,11 +1,28 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+import tkinter.font
 from typing import Literal, Self
 
 from constants import BLOCK_ELEMENTS, HSTEP, VSTEP, WIDTH
 from layout.commands import DrawRect, DrawText
 from layout.fonts import FontStyle, FontWeight, get_font
-from layout.types import DisplayListItem, LineItem, TextAlign
 from parser import Attributes, Element, Node, Text
+
+TextAlign = Literal["right", "left", "center"]
+VerticalAlign = Literal["baseline", "top"]
+
+
+@dataclass
+class LineItem:
+    font: tkinter.font.Font
+    x: float
+    valign: VerticalAlign
+    word: str
+
+
+@dataclass
+class DisplayListItem(LineItem):
+    y: float
 
 
 class AbstractLayout(ABC):
