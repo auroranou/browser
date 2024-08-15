@@ -1,10 +1,25 @@
+from abc import ABC, abstractmethod
 from typing import Literal, Self
 
 from constants import BLOCK_ELEMENTS, HSTEP, VSTEP, WIDTH
 from layout.commands import DrawRect, DrawText
 from layout.fonts import FontStyle, FontWeight, get_font
-from layout.types import AbstractLayout, DisplayListItem, LineItem, TextAlign
+from layout.types import DisplayListItem, LineItem, TextAlign
 from parser import Attributes, Element, Node, Text
+
+
+class AbstractLayout(ABC):
+    @abstractmethod
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def layout(self):
+        pass
+
+    @abstractmethod
+    def paint(self):
+        pass
 
 
 # Root of layout tree
@@ -87,6 +102,7 @@ class BlockLayout(AbstractLayout):
 
             self.in_abbr_tag = False
             self.in_pre_tag = False
+            self.in_sup_tag = False
 
             self.line: list[LineItem] = []
 
@@ -139,6 +155,7 @@ class BlockLayout(AbstractLayout):
                         x=self.cursor_x,
                         word=char,
                         font=curr_font,
+                        valign="top" if self.in_sup_tag else "baseline",
                     )
                 )
             else:
@@ -148,6 +165,7 @@ class BlockLayout(AbstractLayout):
                         x=self.cursor_x,
                         word=char.upper(),
                         font=abbr_font,
+                        valign="top" if self.in_sup_tag else "baseline",
                     )
                 )
 
@@ -194,7 +212,14 @@ class BlockLayout(AbstractLayout):
             else:
                 self.flush()
 
-        self.line.append(LineItem(x=self.cursor_x, word=word, font=font))
+        self.line.append(
+            LineItem(
+                x=self.cursor_x,
+                word=word,
+                font=font,
+                valign="top" if self.in_sup_tag else "baseline",
+            )
+        )
         self.cursor_x += w + font.measure(" ")
 
     def flush(self):
@@ -209,9 +234,9 @@ class BlockLayout(AbstractLayout):
             x = self.x + item.x
             y = self.y + baseline - item.font.metrics("ascent")
 
-            # FIXME Ex. 3-2
-            # if item.parent.tag == "sup":
-            #     y = baseline - max_ascent
+            # Ex. 3-2
+            if item.valign == "top":
+                y = self.y + baseline - max_ascent
 
             # Ex. 2-7
             if self.text_align == "right":
@@ -224,10 +249,7 @@ class BlockLayout(AbstractLayout):
 
             self.display_list.append(
                 DisplayListItem(
-                    x=x,
-                    y=y,
-                    word=item.word,
-                    font=item.font,
+                    x=x, y=y, word=item.word, font=item.font, valign=item.valign
                 )
             )
 
@@ -246,6 +268,7 @@ class BlockLayout(AbstractLayout):
         elif tag == "big":
             self.size += 4
         elif tag == "sup":
+            self.in_sup_tag = True
             self.size /= 2
         elif tag == "br":
             self.flush()
@@ -269,6 +292,7 @@ class BlockLayout(AbstractLayout):
         elif tag == "big":
             self.size -= 4
         elif tag == "sup":
+            self.in_sup_tag = False
             self.size *= 2
         elif tag == "p":
             self.flush()

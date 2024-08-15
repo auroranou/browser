@@ -1,9 +1,26 @@
+from typing import cast
 import unittest
 
 from browser import Browser
 from constants import HSTEP, VSTEP, WIDTH
+from layout.commands import DrawRect, DrawText
 from tests.utils import socket
 from url import URL
+
+
+def get_text(cmd: DrawText | DrawRect):
+    assert isinstance(cmd, DrawText)
+    return cmd.text
+
+
+def get_font(cmd: DrawText | DrawRect):
+    assert isinstance(cmd, DrawText)
+    return cmd.font
+
+
+def get_font_metric(cmd: DrawText | DrawRect, metric_name: str):
+    font = get_font(cmd)
+    return font.metrics()[metric_name]
 
 
 class TestLayout(unittest.TestCase):
@@ -24,39 +41,39 @@ class TestLayout(unittest.TestCase):
         browser = self._init_browser("abc def")
         self.assertEqual(len(browser.display_list), 2)
 
-        word1, word2 = browser.display_list[:2]
-        self.assertEqual(word1.x, HSTEP)
-        self.assertEqual(word1.word, "abc")
-        self.assertGreater(word2.x, word1.x)
-        self.assertEqual(word2.word, "def")
+        cmd1, cmd2 = browser.display_list[:2]
+        self.assertEqual(cmd1.left, HSTEP)
+        self.assertEqual(get_text(cmd1), "abc")
+        self.assertGreater(cmd2.left, cmd1.left)
+        self.assertEqual(get_text(cmd2), "def")
 
     def test_rtl(self):
         browser = self._init_browser("abc def", rtl=True)
         self.assertEqual(len(browser.display_list), 2)
 
-        word1 = browser.display_list[0]
-        self.assertGreater(word1.x, HSTEP)
-        self.assertEqual(word1.word, "abc")
+        cmd1 = browser.display_list[0]
+        self.assertGreater(cmd1.left, HSTEP)
+        self.assertEqual(get_text(cmd1), "abc")
 
     def test_center_title(self):
         browser = self._init_browser('<h1 class="title">abc</h1><div>def</div>')
         self.assertEqual((len(browser.display_list)), 2)
 
-        word1, word2 = browser.display_list[:2]
+        cmd1, cmd2 = browser.display_list[:2]
         # First word should be centered, so x coord is greater than default
-        self.assertGreater(word1.x, HSTEP)
+        self.assertGreater(cmd1.left, HSTEP)
         # Second word should be on a new line
-        self.assertGreater(word2.y, word1.y)
+        self.assertGreater(cmd2.top, cmd1.top)
 
     def test_superscript(self):
         browser = self._init_browser("<div>abc <sup>def</sup></div>")
         self.assertEqual(len(browser.display_list), 2)
 
-        word1, word2 = browser.display_list[:2]
-        self.assertEqual(word1.y, word2.y)
+        cmd1, cmd2 = browser.display_list[:2]
+        self.assertEqual(cmd1.top, cmd2.top)
 
-        ascent1 = word1.font.metrics().get("ascent")
-        ascent2 = word2.font.metrics().get("ascent")
+        ascent1 = get_font_metric(cmd1, "ascent")
+        ascent2 = get_font_metric(cmd2, "ascent")
         self.assertGreater(ascent1, ascent2)
 
     def test_abbr(self):
@@ -65,28 +82,31 @@ class TestLayout(unittest.TestCase):
 
         normal_char, abbr_char = browser.display_list[:2]
         self.assertGreater(
-            normal_char.font.metrics().get("ascent"),
-            abbr_char.font.metrics().get("ascent"),
+            get_font_metric(normal_char, "ascent"),
+            get_font_metric(abbr_char, "ascent"),
         )
 
         for char in browser.display_list:
-            if char.word.isalpha():
-                self.assertTrue(char.word.isupper())
+            if isinstance(char, DrawText) and char.text.isalpha():
+                self.assertTrue(char.text.isupper())
 
     def test_pre(self):
         browser = self._init_browser("<pre>abc\n\n<b>d  ef</b></pre>")
-        self.assertEqual(len(browser.display_list), 3)
+        self.assertEqual(len(browser.display_list), 4)
 
-        for word in browser.display_list:
-            self.assertEqual(word.font.cget("family"), "Courier New")
+        for item in browser.display_list:
+            if isinstance(item, DrawText):
+                self.assertEqual(get_font(item)["family"], "Courier New")
+            else:
+                self.assertIsInstance(item, DrawRect)
 
-        abc, d, ef = browser.display_list[:3]
-        self.assertEqual(abc.font.cget("weight"), "normal")
-        self.assertEqual(d.font.cget("weight"), "bold")
-        self.assertEqual(ef.font.cget("weight"), "bold")
+        _, abc, d, ef = browser.display_list
+        self.assertEqual(get_font(abc)["weight"], "normal")
+        self.assertEqual(get_font(d)["weight"], "bold")
+        self.assertEqual(get_font(ef)["weight"], "bold")
 
         # 2 newlines should be preserved between 'abc' and 'd'
-        self.assertGreaterEqual(d.y - abc.y, VSTEP * 2)
+        self.assertGreaterEqual(d.top - abc.top, VSTEP * 2)
 
         # 2 spaces should be preserved between 'd' and 'ef'
-        self.assertGreaterEqual(ef.x - d.x, d.font.measure(" ") * 2)
+        self.assertGreaterEqual(ef.left - d.left, get_font(d).measure(" ") * 2)
