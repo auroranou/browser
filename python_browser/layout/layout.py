@@ -134,6 +134,13 @@ class BlockLayout(AbstractLayout):
 
             self.line: list[LineItem] = []
 
+            # Ex. 5-3: Indent text for bulleted list items
+            if isinstance(self.parent.node, Element) and self.parent.node.tag in [
+                "ul",
+                "ol",
+            ]:
+                self.cursor_x += 8
+
             self.recurse(self.node)
             self.flush()
 
@@ -141,8 +148,7 @@ class BlockLayout(AbstractLayout):
             child.layout()
 
         if mode == "block":
-            h = sum([child.height for child in self.children])
-            self.height = h
+            self.height = sum([child.height for child in self.children])
         else:
             self.height = self.cursor_y
 
@@ -334,7 +340,7 @@ class BlockLayout(AbstractLayout):
             self.in_pre_tag = False
 
     def paint(self):
-        cmds = []
+        cmds: list[DrawRect | DrawText] = []
 
         if self.is_matching_element("pre"):
             cmds.append(
@@ -358,11 +364,31 @@ class BlockLayout(AbstractLayout):
                 )
             )
 
+        # Ex. 5-3
+        if self.is_matching_element("li"):
+            BULLET_SIZE = 4
+            line_height = (
+                self.display_list[0].font.metrics()["linespace"]
+                if len(self.display_list)
+                else self.cursor_y
+            )
+
+            cmds.append(
+                DrawRect(
+                    left=self.x,
+                    top=self.y + line_height / 2,
+                    right=self.x + BULLET_SIZE,
+                    bottom=self.y + line_height / 2 + BULLET_SIZE,
+                    color="black",
+                )
+            )
+
         if self.layout_mode() == "inline":
             for item in self.display_list:
                 cmds.append(
                     DrawText(left=item.x, top=item.y, text=item.word, font=item.font)
                 )
+
         return cmds
 
 
