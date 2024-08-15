@@ -110,3 +110,12 @@ class TestLayout(unittest.TestCase):
 
         # 2 spaces should be preserved between 'd' and 'ef'
         self.assertGreaterEqual(ef.left - d.left, get_font(d).measure(" ") * 2)
+
+    def test_nav(self):
+        browser = self._init_browser("<nav class='links'><p>link</p></nav>")
+        self.assertEqual(len(browser.display_list), 2)
+
+        cmd1, cmd2 = browser.display_list
+        self.assertIsInstance(cmd1, DrawRect)
+        self.assertIsInstance(cmd2, DrawText)
+        self.assertEqual(get_text(cmd2), "link")
