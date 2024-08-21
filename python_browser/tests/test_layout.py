@@ -1,8 +1,7 @@
-from typing import cast
 import unittest
 
 from browser import Browser
-from constants import HSTEP, VSTEP, WIDTH
+from constants import HSTEP, VSTEP
 from layout.commands import DrawRect, DrawText
 from tests.utils import socket
 from url import URL

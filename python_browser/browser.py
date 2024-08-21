@@ -2,10 +2,13 @@
 import tkinter
 
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
+from css.parser import DEFAULT_STYLE_SHEET, CSSParser, style
+from css.selectors import cascade_priority
 from layout.commands import DrawRect, DrawText
 from layout.layout import DocumentLayout, paint_tree
-from parser import HTMLParser
+from parser import Element, HTMLParser
 from url import URL, AbstractURL
+from utils import tree_to_list
 
 
 class Browser:
@@ -17,7 +20,7 @@ class Browser:
 
         self.window = tkinter.Tk()
         self.canvas = tkinter.Canvas(
-            self.window, width=self.screen_width, height=self.screen_height
+            self.window, width=self.screen_width, height=self.screen_height, bg="white"
         )
         self.canvas.pack(expand=True, fill="both")
 
@@ -26,9 +29,32 @@ class Browser:
         self.window.bind("<MouseWheel>", self.mousewheel)
         self.window.bind("<Configure>", self.resize)
 
+    def get_stylesheets(self):
+        return [
+            node.attributes["href"]
+            for node in tree_to_list(self.nodes, [])
+            if isinstance(node, Element)
+            and node.tag == "link"
+            and node.attributes.get("rel") == "stylesheet"
+            and "href" in node.attributes
+        ]
+
     def load(self, url: AbstractURL):
         body, _ = url.request()
         self.nodes = HTMLParser(body).parse()
+        rules = DEFAULT_STYLE_SHEET.copy()
+        links = self.get_stylesheets()
+
+        for link in links:
+            style_url = url.resolve(link)
+            try:
+                body = style_url.request()
+            except:
+                continue
+            rules.extend(CSSParser(body).parse())
+
+        style(self.nodes, sorted(rules, key=cascade_priority))
+
         self.layout()
         self.draw()
 

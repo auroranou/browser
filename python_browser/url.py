@@ -159,6 +159,23 @@ class HttpURL(AbstractURL):
         if should_cache:
             browser_cache.add(self.url, content, int(max_age))
 
+    def resolve(self, url):
+        if "://" in url:
+            return HttpURL(url)
+
+        if not url.startswith("/"):
+            dir, _ = self.path.rsplit("/", 1)
+            while url.startswith("../"):
+                _, url = url.split("/", 1)
+                if "/" in dir:
+                    dir, _ = dir.rsplit("/", 1)
+            url = dir + "/" + url
+
+        if url.startswith("//"):
+            return HttpURL(self.scheme + ":" + url)
+        else:
+            return HttpURL(self.scheme + "://" + self.host + ":" + str(self.port) + url)
+
     def request(self) -> tuple[str, bool]:
         # Check cache for this URL first and return content immediately if found
         if browser_cache.has(self.url):

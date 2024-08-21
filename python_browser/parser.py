@@ -11,6 +11,7 @@ class Element:
         self.attributes: Attributes = attributes
         self.children: list[Node] = []
         self.parent: Element | None = parent
+        self.style: dict[str, str] = {}
 
     def __repr__(self) -> str:
         return f"<{self.tag}>"
@@ -21,6 +22,7 @@ class Text:
         self.text: str = text
         self.children: list[Never] = []
         self.parent: Element = parent
+        self.style: dict[str, str] = {}
 
     def __repr__(self) -> str:
         return repr(self.text)
@@ -127,9 +129,3 @@ class HTMLParser:
             parent.children.append(node)
 
         return self.unfinished.pop()
-
-
-def print_tree(node: Node, indent=0):
-    print(" " * indent, node)
-    for child in node.children:
-        print_tree(child, indent + 2)

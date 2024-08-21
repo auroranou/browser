@@ -4,10 +4,11 @@ import tkinter.font
 
 @dataclass
 class DrawText:
-    top: float
+    color: str
+    font: tkinter.font.Font
     left: float
     text: str
-    font: tkinter.font.Font
+    top: float
 
     @property
     def bottom(self) -> float:
@@ -15,7 +16,12 @@ class DrawText:
 
     def execute(self, scroll: float, canvas: tkinter.Canvas):
         canvas.create_text(
-            self.left, self.top - scroll, text=self.text, font=self.font, anchor="nw"
+            self.left,
+            self.top - scroll,
+            anchor="nw",
+            fill=self.color,
+            font=self.font,
+            text=self.text,
         )
 
 

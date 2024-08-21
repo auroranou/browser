@@ -9,14 +9,14 @@ from layout.fonts import FontStyle, FontWeight, get_font
 from parser import Attributes, Element, Node, Text
 
 TextAlign = Literal["right", "left", "center"]
-VerticalAlign = Literal["baseline", "top"]
 
 
 @dataclass
 class LineItem:
+    color: str
     font: tkinter.font.Font
     x: float
-    valign: VerticalAlign
+    valign: str
     word: str
 
 
@@ -75,6 +75,17 @@ class BlockLayout(AbstractLayout):
         self.children: list[BlockLayout] = []
         self.display_list: list[DisplayListItem] = []
 
+        # Attributes below are used for inline text layout only
+        self.cursor_x = 0
+        self.cursor_y = 0
+        self.text_align: TextAlign = "right" if parent.rtl else "left"
+
+        self.in_abbr_tag = False
+        self.in_pre_tag = False
+        self.in_sup_tag = False
+
+        self.line: list[LineItem] = []
+
     def has_block_children(self) -> bool:
         return any(
             isinstance(child, Element) and child.tag in BLOCK_ELEMENTS
@@ -89,6 +100,15 @@ class BlockLayout(AbstractLayout):
             isinstance(self.node, Element)
             and "class" in self.node.attributes
             and class_name in self.node.attributes["class"]
+        )
+
+    def get_font_from_node(self, node: Node) -> tkinter.font.Font:
+        size = int(float(node.style["font-size"][:-2]) * 0.75)
+        return get_font(
+            size,
+            node.style["font-weight"],
+            node.style["font-style"],
+            node.style["font-family"],
         )
 
     def layout_mode(self) -> Literal["inline"] | Literal["block"]:
@@ -121,18 +141,6 @@ class BlockLayout(AbstractLayout):
                 self.children.append(next)
                 previous = next
         else:
-            self.cursor_x = 0
-            self.cursor_y = 0
-            self.size = 12
-            self.style: FontStyle = "roman"
-            self.weight: FontWeight = "normal"
-            self.text_align: TextAlign = "right" if self.rtl else "left"
-
-            self.in_abbr_tag = False
-            self.in_pre_tag = False
-            self.in_sup_tag = False
-
-            self.line: list[LineItem] = []
 
             # Ex. 5-3: Indent text for bulleted list items
             if isinstance(self.parent.node, Element) and self.parent.node.tag in [
@@ -158,22 +166,21 @@ class BlockLayout(AbstractLayout):
             if self.in_pre_tag:
                 # Split on newline to preserve internal whitespace
                 for line in tree.text.split("\n"):
-                    self._handle_pre(line)
+                    self._handle_pre(tree, line)
             else:
                 for word in tree.text.split():
-                    self.word(word)
+                    self.word(tree, word)
         elif isinstance(tree, Element):
-            self.open_tag(tree.tag, tree.attributes)
             for child in tree.children:
                 self.recurse(child)
-            self.close_tag(tree.tag)
 
     # Ex. 3-4
-    def _handle_abbr(self, word: str):
+    def _handle_abbr(self, node: Node, word: str):
+        size = int(float(node.style["font-size"][:-2]) * 0.75)
         # Inside an <abbr> tag, lower-case letters should be small, capitalized, and bold,
-        abbr_font = get_font(int(self.size - 2), "bold", "roman")
+        abbr_font = get_font(size, "bold", "roman")
         # while all other characters (upper case, numbers, etc.) should be drawn in the normal font
-        curr_font = get_font(int(self.size), self.weight, self.style)
+        curr_font = get_font(size, node.style["font-weight"], node.style["font-style"])
 
         # If the <abbr> word won't fit on the current line, flush first
         word_w = curr_font.measure(word)
@@ -189,6 +196,7 @@ class BlockLayout(AbstractLayout):
                         x=self.cursor_x,
                         word=char,
                         font=curr_font,
+                        color=node.style["color"],
                         valign="top" if self.in_sup_tag else "baseline",
                     )
                 )
@@ -199,6 +207,7 @@ class BlockLayout(AbstractLayout):
                         x=self.cursor_x,
                         word=char.upper(),
                         font=abbr_font,
+                        color=node.style["color"],
                         valign="top" if self.in_sup_tag else "baseline",
                     )
                 )
@@ -208,13 +217,19 @@ class BlockLayout(AbstractLayout):
         self.cursor_x += curr_font.measure(" ")
 
     # Ex. 3-5
-    def _handle_pre(self, line: str):
-        font = get_font(int(self.size), self.weight, self.style, "Courier New")
+    def _handle_pre(self, node: Text, line: str):
+        size = int(float(node.style["font-size"][:-2]) * 0.75)
+        font = get_font(
+            size,
+            node.style["font-weight"],
+            node.style["font-style"],
+            node.style["font-family"],
+        )
         if len(line):
             words = line.split(" ")
             for word in words:
                 if len(word):
-                    self.word(word)
+                    self.word(node, word)
                 else:
                     self.cursor_x += font.measure(" ")
 
@@ -225,23 +240,24 @@ class BlockLayout(AbstractLayout):
             self.cursor_y += VSTEP
             self.cursor_x = 0
 
-    def word(self, word: str):
+    def word(self, node: Text, word: str):
         if self.in_abbr_tag:
-            self._handle_abbr(word)
+            self._handle_abbr(node, word)
             return
 
+        size = int(float(node.style["font-size"][:-2]) * 0.75)
         font = get_font(
-            int(self.size),
-            self.weight,
-            self.style,
-            family="Courier New" if self.in_pre_tag else "",
+            size,
+            node.style["font-weight"],
+            node.style["font-style"],
+            family=node.style["font-family"],
         )
         w = font.measure(word)
 
         if self.cursor_x + w > self.width - HSTEP:
             if "&shy;" in word:
                 for substring in word.split("&shy;"):
-                    self.word(substring)
+                    self.word(node, substring)
                 return
             else:
                 self.flush()
@@ -251,7 +267,8 @@ class BlockLayout(AbstractLayout):
                 x=self.cursor_x,
                 word=word,
                 font=font,
-                valign="top" if self.in_sup_tag else "baseline",
+                color=node.style["color"],
+                valign=node.style["vertical-align"],
             )
         )
         self.cursor_x += w + font.measure(" ")
@@ -283,7 +300,12 @@ class BlockLayout(AbstractLayout):
 
             self.display_list.append(
                 DisplayListItem(
-                    x=x, y=y, word=item.word, font=item.font, valign=item.valign
+                    x=x,
+                    y=y,
+                    word=item.word,
+                    font=item.font,
+                    color=item.color,
+                    valign=item.valign,
                 )
             )
 
@@ -291,53 +313,6 @@ class BlockLayout(AbstractLayout):
         self.cursor_y = baseline + 1.25 * max_descent
         self.cursor_x = 0
         self.line = []
-
-    def open_tag(self, tag: str, attrs: Attributes):
-        if tag == "i":
-            self.style = "italic"
-        elif tag == "b":
-            self.weight = "bold"
-        elif tag == "small":
-            self.size -= 2
-        elif tag == "big":
-            self.size += 4
-        elif tag == "sup":
-            self.in_sup_tag = True
-            self.size /= 2
-        elif tag == "br":
-            self.flush()
-        elif tag == "h1":
-            if "class" in attrs and "title" in attrs["class"]:
-                self.text_align = "center"
-        elif tag == "abbr":
-            self.in_abbr_tag = True
-        elif tag == "pre":
-            # Make sure partial lines are flushed before laying out <pre>
-            self.flush()
-            self.in_pre_tag = True
-
-    def close_tag(self, tag: str):
-        if tag == "i":
-            self.style = "roman"
-        elif tag == "b":
-            self.weight = "normal"
-        elif tag == "small":
-            self.size += 2
-        elif tag == "big":
-            self.size -= 4
-        elif tag == "sup":
-            self.in_sup_tag = False
-            self.size *= 2
-        elif tag == "p":
-            self.flush()
-            self.cursor_y += VSTEP
-        elif tag == "h1":
-            self.flush()
-            self.text_align = "right" if self.rtl else "left"
-        elif tag == "abbr":
-            self.in_abbr_tag = False
-        elif tag == "pre":
-            self.in_pre_tag = False
 
     def paint(self):
         cmds: list[DrawRect | DrawText] = []
@@ -386,7 +361,13 @@ class BlockLayout(AbstractLayout):
         if self.layout_mode() == "inline":
             for item in self.display_list:
                 cmds.append(
-                    DrawText(left=item.x, top=item.y, text=item.word, font=item.font)
+                    DrawText(
+                        left=item.x,
+                        top=item.y,
+                        text=item.word,
+                        font=item.font,
+                        color=item.color,
+                    )
                 )
 
         return cmds
