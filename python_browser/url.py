@@ -3,6 +3,7 @@ import gzip
 from io import BufferedReader
 import socket
 import ssl
+from typing import Self
 from urllib.parse import urlparse
 
 from cache import browser_cache
@@ -16,6 +17,10 @@ class AbstractURL(ABC):
 
     @abstractmethod
     def request(self) -> tuple[str, bool]:
+        pass
+
+    @abstractmethod
+    def resolve(self, url: str) -> Self:
         pass
 
 
@@ -42,6 +47,9 @@ class DataURL(AbstractURL):
     def request(self) -> tuple[str, bool]:
         return self.path, False
 
+    def resolve(self, url: str) -> "DataURL":
+        return DataURL(url)
+
 
 # Ex. 1-2
 class FileURL(AbstractURL):
@@ -56,6 +64,9 @@ class FileURL(AbstractURL):
         with open(self.path, "r") as file:
             contents = file.read()
             return contents, False
+
+    def resolve(self, url: str) -> "FileURL":
+        return FileURL(url)
 
 
 class HttpURL(AbstractURL):
@@ -159,7 +170,7 @@ class HttpURL(AbstractURL):
         if should_cache:
             browser_cache.add(self.url, content, int(max_age))
 
-    def resolve(self, url):
+    def resolve(self, url: str) -> "HttpURL":
         if "://" in url:
             return HttpURL(url)
 

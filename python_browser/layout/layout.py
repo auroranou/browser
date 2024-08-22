@@ -162,11 +162,10 @@ class BlockLayout(AbstractLayout):
                 for word in tree.text.split():
                     self.word(tree, word)
         elif isinstance(tree, Element):
-            # TODO put open and close_tag back in to handle special tag cases
-            if tree.tag == "br":
-                self.flush()
+            self.open_tag(tree.tag)
             for child in tree.children:
                 self.recurse(child)
+            self.close_tag(tree.tag)
 
     # Ex. 3-4
     def _handle_abbr(self, node: Node, word: str):
@@ -295,6 +294,30 @@ class BlockLayout(AbstractLayout):
         self.cursor_y = baseline + 1.25 * max_descent
         self.cursor_x = 0
         self.line = []
+
+    def open_tag(self, tag: str):
+        if tag == "br":
+            self.flush()
+        elif tag == "abbr":
+            self.in_abbr_tag = True
+        elif tag == "sup":
+            self.in_sup_tag = True
+        elif tag == "pre":
+            # Make sure partial lines are flushed before laying out <pre>
+            self.flush()
+            self.in_pre_tag = True
+
+    def close_tag(self, tag: str):
+        if tag == "p":
+            self.cursor_y += VSTEP
+        elif tag == "h1":
+            self.flush()
+        elif tag == "abbr":
+            self.in_abbr_tag = False
+        elif tag == "sup":
+            self.in_sup_tag = False
+        elif tag == "pre":
+            self.in_pre_tag = False
 
     def paint(self):
         cmds: list[DrawRect | DrawText] = []
