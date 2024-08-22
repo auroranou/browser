@@ -1,6 +1,8 @@
 import tkinter.font
 from typing import Literal
 
+from parser import Node
+
 
 FontStyle = Literal["roman", "italic"]
 FontWeight = Literal["normal", "bold"]
@@ -40,3 +42,16 @@ def get_font(size: int, weight: str, style: str, family: str = "") -> tkinter.fo
         label = tkinter.Label(font=font)
         FONTS[key] = (font, label)
     return FONTS[key][0]
+
+
+def get_font_size_from_node(node: Node) -> int:
+    return int(float(node.style["font-size"][:-2]) * 0.75)
+
+
+def get_font_from_node(node: Node) -> tkinter.font.Font:
+    return get_font(
+        size=get_font_size_from_node(node),
+        weight=node.style.get("font-weight", "normal"),
+        style=node.style.get("font-style", "roman"),
+        family=node.style.get("font-family", ""),
+    )

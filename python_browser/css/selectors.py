@@ -42,6 +42,6 @@ class DescendantSelector(AbstractSelector):
 SelectorRule = tuple[TagSelector | DescendantSelector, CSSRule]
 
 
-def cascade_priority(rule: SelectorRule):
+def cascade_priority(rule: SelectorRule) -> int:
     selector, body = rule
     return selector.priority

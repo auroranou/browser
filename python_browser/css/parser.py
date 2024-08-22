@@ -40,17 +40,18 @@ class CSSParser:
         return self.text[start : self.i]
 
     def consume_literal(self, literal: str):
-        if not (self.more_to_parse() and self.curr_char == literal):
+        if self.more_to_parse() and self.curr_char == literal:
+            self.i += 1
+        else:
             raise Exception(f"Parsing error: {literal} not matched")
 
-        self.i += 1
-
-    def pair(self) -> tuple[str, str]:
+    def parse_declaration(self) -> tuple[str, str]:
         prop = self.consume_word()
         self.consume_whitespace()
         self.consume_literal(":")
         self.consume_whitespace()
 
+        # CSS values may be multiple words, separated by whitespace
         val = ""
         while self.curr_char != ";":
             val += self.consume_word()
@@ -59,13 +60,14 @@ class CSSParser:
                 self.consume_whitespace()
                 val += " "
 
-        return prop.casefold(), val
+        return prop.casefold(), val.strip()
 
-    def body(self) -> dict[str, str]:
+    def parse_declaration_block(self) -> dict[str, str]:
         pairs: dict[str, str] = {}
+
         while self.more_to_parse() and self.curr_char != "}":
             try:
-                prop, val = self.pair()
+                prop, val = self.parse_declaration()
                 pairs[prop.casefold()] = val
                 self.consume_whitespace()
                 self.consume_literal(";")
@@ -75,11 +77,9 @@ class CSSParser:
                 if why == ";":
                     self.consume_literal(";")
                     self.consume_whitespace()
-                elif why == "}":
-                    self.consume_literal("}")
-                    self.consume_whitespace()
                 else:
                     break
+
         return pairs
 
     def ignore_until(self, chars: list[str]) -> str | None:
@@ -91,7 +91,7 @@ class CSSParser:
 
         return None
 
-    def selector(self) -> TagSelector | DescendantSelector:
+    def parse_selector(self) -> TagSelector | DescendantSelector:
         out = TagSelector(self.consume_word().casefold())
         self.consume_whitespace()
 
@@ -104,45 +104,56 @@ class CSSParser:
         return out
 
     def parse(self) -> list[SelectorRule]:
-        rules = []
+        rules: list[SelectorRule] = []
 
         while self.more_to_parse():
-            self.consume_whitespace()
-            selector = self.selector()
-            self.consume_literal("{")
-            self.consume_whitespace()
-            body = self.body()
-            self.consume_literal("}")
-            rules.append((selector, body))
+            try:
+                self.consume_whitespace()
+                selector = self.parse_selector()
+                self.consume_literal("{")
+                self.consume_whitespace()
+                body = self.parse_declaration_block()
+                self.consume_literal("}")
+                rules.append((selector, body))
+            except Exception:
+                why = self.ignore_until(["}"])
+                if why == "}":
+                    self.consume_literal("}")
+                    self.consume_whitespace()
+                else:
+                    break
 
         return rules
 
 
-DEFAULT_STYLE_SHEET = CSSParser(open("browser.css").read()).parse()
+def get_default_stylesheet() -> list[SelectorRule]:
+    with open("browser.css", "r") as file:
+        text = file.read()
+        return CSSParser(text).parse()
 
 
 def style(node: Node, rules: list[SelectorRule]):
-    # Apply any inherited styles
+    # Apply any inherited styles to the node first
     for property, default_value in INHERITED_PROPERTIES.items():
         if node.parent:
             node.style[property] = node.parent.style[property]
         else:
             node.style[property] = default_value
 
-    # Handle stylesheets
+    # Then handle custom stylesheets
     for selector, body in rules:
         if not selector.matches(node):
             continue
         for property, value in body.items():
             node.style[property] = value
 
-    # Handle inline styles, which override stylesheet CSS rules
+    # Then handle inline styles, which override stylesheet CSS rules
     if isinstance(node, Element) and "style" in node.attributes:
-        pairs = CSSParser(node.attributes["style"]).body()
+        pairs = CSSParser(node.attributes["style"]).parse_declaration_block()
         for prop, val in pairs.items():
             node.style[prop] = val
 
-    # Resolve final font sizes
+    # Compute final font sizes for percentage size values
     if node.style["font-size"].endswith("%"):
         if node.parent:
             parent_font_size = node.parent.style["font-size"]

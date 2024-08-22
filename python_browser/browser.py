@@ -2,7 +2,7 @@
 import tkinter
 
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
-from css.parser import DEFAULT_STYLE_SHEET, CSSParser, style
+from css.parser import CSSParser, get_default_stylesheet, style
 from css.selectors import cascade_priority
 from layout.commands import DrawRect, DrawText
 from layout.layout import DocumentLayout, paint_tree
@@ -42,13 +42,13 @@ class Browser:
     def load(self, url: AbstractURL):
         body, _ = url.request()
         self.nodes = HTMLParser(body).parse()
-        rules = DEFAULT_STYLE_SHEET.copy()
+        rules = get_default_stylesheet().copy()
         links = self.get_stylesheets()
 
         for link in links:
             style_url = url.resolve(link)
             try:
-                body = style_url.request()
+                body, _ = style_url.request()
             except:
                 continue
             rules.extend(CSSParser(body).parse())

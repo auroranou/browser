@@ -5,8 +5,8 @@ from typing import Literal, Self
 
 from constants import BLOCK_ELEMENTS, HSTEP, VSTEP, WIDTH
 from layout.commands import DrawRect, DrawText
-from layout.fonts import FontStyle, FontWeight, get_font
-from parser import Attributes, Element, Node, Text
+from layout.fonts import get_font, get_font_from_node, get_font_size_from_node
+from parser import Element, Node, Text
 
 TextAlign = Literal["right", "left", "center"]
 
@@ -102,15 +102,6 @@ class BlockLayout(AbstractLayout):
             and class_name in self.node.attributes["class"]
         )
 
-    def get_font_from_node(self, node: Node) -> tkinter.font.Font:
-        size = int(float(node.style["font-size"][:-2]) * 0.75)
-        return get_font(
-            size,
-            node.style["font-weight"],
-            node.style["font-style"],
-            node.style["font-family"],
-        )
-
     def layout_mode(self) -> Literal["inline"] | Literal["block"]:
         if isinstance(self.node, Text):
             return "inline"
@@ -171,12 +162,15 @@ class BlockLayout(AbstractLayout):
                 for word in tree.text.split():
                     self.word(tree, word)
         elif isinstance(tree, Element):
+            # TODO put open and close_tag back in to handle special tag cases
+            if tree.tag == "br":
+                self.flush()
             for child in tree.children:
                 self.recurse(child)
 
     # Ex. 3-4
     def _handle_abbr(self, node: Node, word: str):
-        size = int(float(node.style["font-size"][:-2]) * 0.75)
+        size = get_font_size_from_node(node)
         # Inside an <abbr> tag, lower-case letters should be small, capitalized, and bold,
         abbr_font = get_font(size, "bold", "roman")
         # while all other characters (upper case, numbers, etc.) should be drawn in the normal font
@@ -196,7 +190,7 @@ class BlockLayout(AbstractLayout):
                         x=self.cursor_x,
                         word=char,
                         font=curr_font,
-                        color=node.style["color"],
+                        color=node.style.get("color", "black"),
                         valign="top" if self.in_sup_tag else "baseline",
                     )
                 )
@@ -207,7 +201,7 @@ class BlockLayout(AbstractLayout):
                         x=self.cursor_x,
                         word=char.upper(),
                         font=abbr_font,
-                        color=node.style["color"],
+                        color=node.style.get("color", "black"),
                         valign="top" if self.in_sup_tag else "baseline",
                     )
                 )
@@ -218,13 +212,7 @@ class BlockLayout(AbstractLayout):
 
     # Ex. 3-5
     def _handle_pre(self, node: Text, line: str):
-        size = int(float(node.style["font-size"][:-2]) * 0.75)
-        font = get_font(
-            size,
-            node.style["font-weight"],
-            node.style["font-style"],
-            node.style["font-family"],
-        )
+        font = get_font_from_node(node)
         if len(line):
             words = line.split(" ")
             for word in words:
@@ -245,13 +233,7 @@ class BlockLayout(AbstractLayout):
             self._handle_abbr(node, word)
             return
 
-        size = int(float(node.style["font-size"][:-2]) * 0.75)
-        font = get_font(
-            size,
-            node.style["font-weight"],
-            node.style["font-style"],
-            family=node.style["font-family"],
-        )
+        font = get_font_from_node(node)
         w = font.measure(word)
 
         if self.cursor_x + w > self.width - HSTEP:
@@ -268,7 +250,7 @@ class BlockLayout(AbstractLayout):
                 word=word,
                 font=font,
                 color=node.style["color"],
-                valign=node.style["vertical-align"],
+                valign=node.style.get("vertical-align", "baseline"),
             )
         )
         self.cursor_x += w + font.measure(" ")
