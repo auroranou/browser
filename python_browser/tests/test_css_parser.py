@@ -42,7 +42,7 @@ class TestCSSParser(unittest.TestCase):
         self.assertEqual(len(rules.keys()), 0)
 
     def test_parse_stylesheet(self):
-        styles = "body { font-family: sans-serif; }"
+        styles = 'body { font-family: "Courier New"; }'
         parser = CSSParser(text=styles)
         selector_rules = parser.parse()
         self.assertEqual(len(selector_rules), 1)
@@ -50,7 +50,7 @@ class TestCSSParser(unittest.TestCase):
         selector, rule = selector_rules[0]
         self.assertIsInstance(selector, TagSelector)
         self.assertEqual(cast(TagSelector, selector).tag, "body")
-        self.assertEqual(rule.get("font-family"), "sans-serif")
+        self.assertEqual(rule.get("font-family"), '"Courier New"')
 
     def test_parse_media_query(self):
         # For now, media queries are not supported and we expect this to render nothing

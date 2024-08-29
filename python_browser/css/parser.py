@@ -2,10 +2,11 @@ from css.selectors import CSSRule, DescendantSelector, SelectorRule, TagSelector
 from parser import Element, Node
 
 INHERITED_PROPERTIES: CSSRule = {
+    "color": "black",
+    "font-family": "AppleUI",
     "font-size": "16px",
     "font-style": "normal",
     "font-weight": "normal",
-    "color": "black",
 }
 
 
@@ -29,7 +30,7 @@ class CSSParser:
         start = self.i
 
         while self.more_to_parse():
-            if self.curr_char.isalnum() or self.curr_char in "#-.%":
+            if self.curr_char.isalnum() or self.curr_char in '#-.%"':
                 self.i += 1
             else:
                 break
@@ -144,6 +145,8 @@ def style(node: Node, rules: list[SelectorRule]):
     for selector, body in rules:
         if not selector.matches(node):
             continue
+        if isinstance(node, Element) and node.tag in ["html", "head"]:
+            continue
         for property, value in body.items():
             node.style[property] = value
 
@@ -152,6 +155,12 @@ def style(node: Node, rules: list[SelectorRule]):
         pairs = CSSParser(node.attributes["style"]).parse_declaration_block()
         for prop, val in pairs.items():
             node.style[prop] = val
+
+    # HACK tkinter expects a single font-family, so grab the first one
+    if node.style["font-family"]:
+        font_family = node.style["font-family"].split(",")[0]
+        font_family = font_family.replace('"', "").replace("'", "")
+        node.style["font-family"] = font_family
 
     # Compute final font sizes for percentage size values
     if node.style["font-size"].endswith("%"):
