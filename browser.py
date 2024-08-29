@@ -4,9 +4,10 @@ import tkinter
 from constants import HEIGHT, SCROLL_STEP, VSTEP, WIDTH
 from css.parser import CSSParser, get_default_stylesheet, style
 from css.selectors import cascade_priority
+from web_html.parser import HTMLParser
+from web_html.node import Element
 from layout.commands import DrawRect, DrawText
 from layout.layout import DocumentLayout, paint_tree
-from parser import Element, HTMLParser
 from url import URL, AbstractURL
 from utils import tree_to_list
 

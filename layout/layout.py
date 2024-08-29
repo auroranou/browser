@@ -6,7 +6,7 @@ from typing import Literal, Self
 from constants import BLOCK_ELEMENTS, HSTEP, VSTEP, WIDTH
 from layout.commands import DrawRect, DrawText
 from layout.fonts import get_font, get_font_from_node, get_font_size_from_node
-from parser import Element, Node, Text
+from web_html.node import Element, Node, Text
 
 TextAlign = Literal["right", "left", "center"]
 

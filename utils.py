@@ -1,4 +1,4 @@
-from parser import Node
+from web_html.node import Node
 
 
 def print_tree(node: Node, indent=0):

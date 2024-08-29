@@ -1,7 +1,7 @@
 import tkinter.font
 from typing import Literal
 
-from parser import Node
+from web_html.node import Node
 
 
 FontStyle = Literal["roman", "italic"]

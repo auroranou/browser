@@ -1,5 +1,5 @@
 from css.selectors import CSSRule, DescendantSelector, SelectorRule, TagSelector
-from parser import Element, Node
+from web_html.node import Element, Node
 
 INHERITED_PROPERTIES: CSSRule = {
     "color": "black",

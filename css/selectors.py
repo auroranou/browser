@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Self
-from parser import Element, Node
+from web_html.node import Element, Node
 
 CSSRule = dict[str, str]
 
